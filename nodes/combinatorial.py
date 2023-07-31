@@ -2,7 +2,7 @@ from dynamicprompts.commands.base import SamplingMethod
 from dynamicprompts.sampling_context import SamplingContext
 from dynamicprompts.wildcards import WildcardManager
 
-from comfy_dynamicprompts.nodes.sampler import DPAbstractSamplerNode
+from .sampler import DPAbstractSamplerNode
 
 
 class DPCombinatorialGenerator(DPAbstractSamplerNode):

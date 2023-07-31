@@ -1,6 +1,6 @@
 from dynamicprompts.generators import JinjaGenerator
 
-from comfy_dynamicprompts.nodes.generator import DPGeneratorNode
+from .generator import DPGeneratorNode
 
 
 class DPJinja(DPGeneratorNode):

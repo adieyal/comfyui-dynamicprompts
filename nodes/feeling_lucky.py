@@ -1,6 +1,6 @@
 from dynamicprompts.generators import FeelingLuckyGenerator, RandomPromptGenerator
 
-from comfy_dynamicprompts.nodes.generator import DPGeneratorNode
+from .generator import DPGeneratorNode
 
 
 class DPFeelingLucky(DPGeneratorNode):
