@@ -22,6 +22,14 @@ Nodes can be found in the Dynamic Prompts menu:
 
 ## Installation
 
+### Using ComfyUI-Manager
+1. Install [ComfyUI-Manager](https://github.com/ltdrdata/ComfyUI-Manager) if it isn't already.
+2. Press Install Custom Nodes from the ComfyUI-Manager menu
+3. Search for dynamicprompts
+4. Click install
+
+### Manual installation
+
 Follow the steps below to install the ComfyUI-DynamicPrompts Library:
 
 1. Clone the repository:
@@ -32,9 +40,9 @@ Follow the steps below to install the ComfyUI-DynamicPrompts Library:
    ```
    python -m pip install -r ComfyUI/custom_nodes/requirements.txt
    ```
-3. Copy the dp.js file to the ComfyUI web extensions directory:
+3. Run install.py:
    ```
-   cp ComfyUI/custom_nodes/comfyui-dynamicprompts/web-extensions/dp.js ComfyUI/web/extensions
+   python ComfyUI/custom_nodes/comfyui-dynamicprompts/install.py
    ```
 4. `mkdir ComfyUI/wildcards`
 5. (Optional) download a wildcard collection and copy it into this new wildcards folder.
