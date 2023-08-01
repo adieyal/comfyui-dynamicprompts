@@ -1,8 +1,8 @@
-from comfy_dynamicprompts.nodes.combinatorial import DPCombinatorialGenerator
-from comfy_dynamicprompts.nodes.feeling_lucky import DPFeelingLucky
-from comfy_dynamicprompts.nodes.jinja import DPJinja
-from comfy_dynamicprompts.nodes.magicprompt import DPMagicPrompt
-from comfy_dynamicprompts.nodes.random import DPRandomGenerator
+from .combinatorial import DPCombinatorialGenerator
+from .feeling_lucky import DPFeelingLucky
+from .jinja import DPJinja
+from .magicprompt import DPMagicPrompt
+from .random import DPRandomGenerator
 
 NODE_CLASS_MAPPINGS = {
     "DPRandomGenerator": DPRandomGenerator,
