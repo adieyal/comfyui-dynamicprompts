@@ -40,7 +40,12 @@ class DPAbstractSamplerNode(ABC):
         Find the wildcards folder.
         First look in the comfy_dynamicprompts folder, then in the custom_nodes folder, then in the Comfui base folder.
         """
-        from folder_paths import folder_names_and_paths
+        from folder_paths import base_path, folder_names_and_paths
+
+        wildcard_path = Path(base_path) / "wildcards"
+
+        if wildcard_path.exists():
+            return wildcard_path
 
         extension_path = (
             Path(folder_names_and_paths["custom_nodes"][0][0])
