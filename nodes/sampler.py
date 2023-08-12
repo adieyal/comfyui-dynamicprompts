@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC, abstractproperty
+from collections.abc import Iterable
 from pathlib import Path
 
+from dynamicprompts.sampling_context import SamplingContext
 from dynamicprompts.wildcards import WildcardManager
 
 logger = logging.getLogger(__name__)
@@ -29,56 +33,69 @@ class DPAbstractSamplerNode(ABC):
         super().__init__(*args, **kwargs)
         wildcards_folder = self._find_wildcards_folder()
         self._wildcard_manager = WildcardManager(path=wildcards_folder)
-        self._sampling_context = self._get_context(self._wildcard_manager)
         self._current_prompt = None
 
-    def _find_wildcards_folder(self):
-        wildcards_folder = Path("wildcards")
-        if wildcards_folder.exists():
-            return wildcards_folder
+    def _find_wildcards_folder(self) -> Path | None:
+        """
+        Find the wildcards folder.
+        First look in the comfy_dynamicprompts folder, then in the custom_nodes folder, then in the Comfui base folder.
+        """
+        from folder_paths import folder_names_and_paths
 
-        wildcards_folder = Path(__file__).parent / "wildcards"
-        if wildcards_folder.exists():
-            return wildcards_folder
+        extension_path = (
+            Path(folder_names_and_paths["custom_nodes"][0][0])
+            / "comfyui-dynamicprompts"
+        )
+        wildcard_path = extension_path / "wildcards"
+        wildcard_path.mkdir(parents=True, exist_ok=True)
 
-        return None
+        return wildcard_path
 
-    def _get_next_prompt(self):
+    def _get_next_prompt(self, prompts: Iterable[str], current_prompt: str) -> str:
         """
         Get the next prompt from the prompts generator.
         """
         try:
-            return next(self._prompts)
-        except StopIteration:
-            self._prompts = self._context.sample_prompts(self._current_prompt)
+            return next(prompts)
+        except (StopIteration, RuntimeError):
+            self._prompts = self.context.sample_prompts(current_prompt)
             try:
-                return next(self._prompts)
+                return next(prompts)
             except StopIteration:
                 logger.exception("No more prompts to generate!")
                 return ""
 
-    def get_prompt(self, text: str) -> str:
+    def has_prompt_changed(self, text: str) -> bool:
         """
+        Check if the prompt has changed.
+        """
+        return self._current_prompt != text
+
+    def get_prompt(self, text: str) -> tuple[str]:
+        """
+        Main entrypoint for this node.
         Using the sampling context, generate a new prompt.
         """
         if text.strip() == "":
             return ("",)
 
-        if self._current_prompt != text:
+        if self.has_prompt_changed(text):
             self._current_prompt = text
-            self._prompts = self._context.sample_prompts(self._current_prompt)
+            self._prompts = self.context.sample_prompts(self._current_prompt)
 
         if self._prompts is None:
-            logger.exception("Prompts is None!")
+            logger.exception("Something went wrong. Prompts is None!")
             return ("",)
 
-        new_prompt = self._get_next_prompt()
-        logger.info(f"New prompt: {new_prompt}")
+        if self._current_prompt is None:
+            logger.exception("Something went wrong. Current prompt is None!")
+            return ("",)
 
-        logger.info(f"Prompt: {new_prompt}")
-        print(f"Prompt: {new_prompt}")
+        new_prompt = self._get_next_prompt(self._prompts, self._current_prompt)
+        print(f"New prompt: {new_prompt}")
+
         return (new_prompt,)
 
-    @abstractmethod
-    def _get_context(self, wildcard_manager: WildcardManager = None):
+    @abstractproperty
+    def context(self) -> SamplingContext:
         ...
