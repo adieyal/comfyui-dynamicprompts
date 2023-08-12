@@ -12,6 +12,7 @@ select = [
 ignore = [
     "C901", # Complexity
     "E501", # Line length
+    "B019", # functools.lrucache
 ]
 unfixable = [
     "B007", # Loop control variable not used within the loop body

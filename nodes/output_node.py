@@ -15,4 +15,4 @@ class OutputString:
     CATEGORY = "utils"
 
     def output_string(self, string):
-        return {"ui": {"string": string}}
+        return ({"ui": {"string": string}},)

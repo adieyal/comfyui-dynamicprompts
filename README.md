@@ -30,27 +30,27 @@ Nodes can be found in the Dynamic Prompts menu:
 
 ### Manual installation
 
-Follow the steps below to install the ComfyUI-DynamicPrompts Library:
+Follow the steps below to install the ComfyUI-DynamicPrompts Library. These commands assume the your current working directory is the ComfyUI root directory.
 
 1. Clone the repository:
    ```
-   git clone https://github.com/adieyal/comfyui-dynamicprompts ComfyUI/custom_nodes/
+   git clone https://github.com/adieyal/comfyui-dynamicprompts custom_nodes/comfyui-dynamicprompts
    ```
 2. Install the required Python packages:
    ```
-   python -m pip install -r ComfyUI/custom_nodes/requirements.txt
+   python -m pip install -r custom_nodes/comfyui-dynamicprompts/requirements.txt
    ```
 3. Run install.py:
    ```
-   python ComfyUI/custom_nodes/comfyui-dynamicprompts/install.py
+   python custom_nodes/comfyui-dynamicprompts/install.py
    ```
-4. `mkdir ComfyUI/wildcards`
+4. `mkdir custom_nodes/comfyui-dynamicprompts/wildcards`
 5. (Optional) download a wildcard collection and copy it into this new wildcards folder.
 6. Restart your ComfyUI.
-7. Example workflows can be found in `ComfyUI/custom_nodes/comfyui-dynamicprompts/example_workflows`.
+7. Example workflows can be found in `custom_nodes/comfyui-dynamicprompts/example_workflows`.
 
 ## Wildcards
-ComfyUI-DynamicPrompts supports wildcard files in `.txt`, .`json` and .`yaml` ([example format](https://github.com/adieyal/sd-dynamic-prompts/blob/main/collections/publicprompts.yaml)) . This library looks for a wildcards folder either in `ComfyUI/wildcards` or `ComfyUI/custom_nodes/comfyui-dynamicprompts/wildcards`.
+The extension looks for wildcard files in `custom_nodes/comfyui-dynamicprompts/wildcards`. It supports wildcard files in `.txt`, .`json` and .`yaml` ([example format](https://github.com/adieyal/sd-dynamic-prompts/blob/main/collections/publicprompts.yaml)).
 
 There are many pre-built wildcards collections available. Here are a few to get you started:
 * [SD Dynamic Prompts built-in](https://github.com/adieyal/sd-dynamic-prompts/tree/main/collections)
