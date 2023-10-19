@@ -4,7 +4,8 @@ from .generator import DPGeneratorNode
 
 
 class DPJinja(DPGeneratorNode):
-    def generate_prompt(self, text):
+    def generate_prompt(self, text, seed):
+        # TODO: Add seed support
         prompt_generator = JinjaGenerator()
 
         all_prompts = prompt_generator.generate(text, 1) or [""]
