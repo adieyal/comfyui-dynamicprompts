@@ -1,16 +1,11 @@
-from functools import lru_cache
+from dynamicprompts.generators import RandomPromptGenerator
 
-from dynamicprompts.enums import SamplingMethod
-from dynamicprompts.sampling_context import SamplingContext
-
-from .sampler import DPAbstractSamplerNode
+from .generator import DPGeneratorNode
 
 
-class DPRandomGenerator(DPAbstractSamplerNode):
-    @property
-    @lru_cache(maxsize=1)
-    def context(self) -> SamplingContext:
-        return SamplingContext(
-            wildcard_manager=self._wildcard_manager,
-            default_sampling_method=SamplingMethod.RANDOM,
-        )
+class DPRandomGenerator(DPGeneratorNode):
+    def generate_prompt(self, text, seed) -> tuple[str]:
+        prompt_generator = RandomPromptGenerator(seed=seed)
+
+        all_prompts = prompt_generator.generate(text, 1) or [""]
+        return all_prompts[0]
