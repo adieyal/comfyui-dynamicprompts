@@ -10,7 +10,7 @@ class DPGeneratorNode(ABC):
     def INPUT_TYPES(s):
         return {
             "required": {
-                "text": ("PROMPT", {"multiline": True}),
+                "text": ("STRING", {"multiline": True}),
                 "autorefresh": (["Yes", "No"],),
             },
         }

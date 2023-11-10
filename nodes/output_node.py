@@ -3,7 +3,7 @@ class OutputString:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "string": ("STRING", {}),
+                "text": ("STRING", {}),
             },
         }
 

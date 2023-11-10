@@ -19,6 +19,7 @@ Nodes can be found in the Dynamic Prompts menu:
 * [Dynamic Prompts Extension for Auto1111](https://github.com/adieyal/sd-dynamic-prompts)
 * [Tutorial](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/tutorial.md)
 * [Online Resources](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/resources.md)
+* [CHANGELOG](./CHANGELOG.md)
 
 ## Installation
 

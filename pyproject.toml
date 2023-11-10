@@ -1,3 +1,10 @@
+[project]
+name = "ComfyUI - Dynamic Prompts"
+version = "0.2.0"
+dependencies = [
+    "dynamicprompts[attentiongrabber,magicprompt]~=0.30.1",
+]
+
 [tool.ruff]
 target-version = "py310"
 select = [

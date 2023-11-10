@@ -1,0 +1,1 @@
+0.2.0 - Nodes now have settable seeds for reproducibility. Thanks to [@romeobuilderotti](https://github.com/romeobuilderotti/) for the inspiration for the inspiration. Also upgraded dynamicprompts to v0.30.1

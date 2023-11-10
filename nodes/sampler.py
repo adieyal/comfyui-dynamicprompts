@@ -16,12 +16,14 @@ class DPAbstractSamplerNode(ABC):
     def INPUT_TYPES(s):
         return {
             "required": {
-                "text": ("PROMPT", {"dynamicPrompts": False, "multiline": True}),
+                "text": ("STRING", {"multiline": True, "dynamicPrompts": False}),
+                "seed": ("INT", {"default": 0, "display": "number"}),
+                "autorefresh": (["Yes", "No"], {"default": "No"}),
             },
         }
 
     @classmethod
-    def IS_CHANGED(cls, text):
+    def IS_CHANGED(cls, text: str, seed: int, autorefresh: str):
         # Force re-evaluation of the node
         return float("NaN")
 
@@ -65,7 +67,7 @@ class DPAbstractSamplerNode(ABC):
         except (StopIteration, RuntimeError):
             self._prompts = self.context.sample_prompts(current_prompt)
             try:
-                return next(prompts)
+                return next(self._prompts)
             except StopIteration:
                 logger.exception("No more prompts to generate!")
                 return ""
@@ -76,11 +78,15 @@ class DPAbstractSamplerNode(ABC):
         """
         return self._current_prompt != text
 
-    def get_prompt(self, text: str) -> tuple[str]:
+    def get_prompt(self, text: str, seed: int, autorefresh: str) -> tuple[str]:
         """
         Main entrypoint for this node.
         Using the sampling context, generate a new prompt.
         """
+
+        if seed > 0:
+            self.context.rand.seed(seed)
+
         if text.strip() == "":
             return ("",)
 
