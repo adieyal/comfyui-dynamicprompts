@@ -19,11 +19,8 @@ Nodes can be found in the Dynamic Prompts menu:
 * [Dynamic Prompts Extension for Auto1111](https://github.com/adieyal/sd-dynamic-prompts)
 * [Tutorial](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/tutorial.md)
 * [Online Resources](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/resources.md)
-<<<<<<< HEAD
 * [CHANGELOG](./CHANGELOG.md)
-=======
 * [Stable Diffusion SDXL Wildcards and ComfyUI](https://ericri.medium.com/stable-diffusion-sdxl-wildcards-and-comfyui-e8483e00e1c)
->>>>>>> refs/rewritten/main
 
 ## Installation
 
