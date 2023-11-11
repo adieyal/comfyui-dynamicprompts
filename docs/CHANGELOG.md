@@ -1,3 +1,4 @@
+0.2.1 - Fixed a bug due to a backwards incompatible change in the latest version of dynamicprompts that returns a SampleResult instead of a str
 0.2.0 - Nodes now have settable seeds for reproducibility. Thanks to [@romeobuilderotti](https://github.com/romeobuilderotti/) for the inspiration for the inspiration. Also upgraded dynamicprompts to v0.30.1
 0.1.3 - Wildcards in the ComfUI root are also supported for backwards compatibility
 0.1.2 - The extension now looks for wildcards in custom_nodes/comfyui_dynamicprompts/wildcards

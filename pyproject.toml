@@ -1,8 +1,8 @@
 [project]
 name = "ComfyUI - Dynamic Prompts"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
-    "dynamicprompts[attentiongrabber,magicprompt]~=0.30.1",
+    "dynamicprompts[attentiongrabber,magicprompt]~=0.30.2",
 ]
 
 [tool.ruff]
