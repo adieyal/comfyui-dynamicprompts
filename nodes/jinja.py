@@ -8,4 +8,4 @@ class DPJinja(DPGeneratorNode):
         prompt_generator = JinjaGenerator()
 
         all_prompts = prompt_generator.generate(text, 1) or [""]
-        return all_prompts[0]
+        return str(all_prompts[0])

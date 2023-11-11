@@ -105,7 +105,7 @@ class DPAbstractSamplerNode(ABC):
         new_prompt = self._get_next_prompt(self._prompts, self._current_prompt)
         print(f"New prompt: {new_prompt}")
 
-        return (new_prompt,)
+        return (str(new_prompt),)
 
     @abstractproperty
     def context(self) -> SamplingContext:

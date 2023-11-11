@@ -30,9 +30,8 @@ class DPFeelingLucky(DPAbstractSamplerNode):
 
         try:
             prompt = self._prompt_generator.generate(text, 1)[0]
-            print(prompt)
 
-            return (prompt,)
+            return (str(prompt),)
         except Exception as e:
             logger.exception(e)
             return ("",)
