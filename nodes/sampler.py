@@ -17,7 +17,7 @@ class DPAbstractSamplerNode(ABC):
         return {
             "required": {
                 "text": ("STRING", {"multiline": True, "dynamicPrompts": False}),
-                "seed": ("INT", {"default": 0, "display": "number"}),
+                "seed": ("INT", {"default": 0, "display": "number", "min": 0, "max": 0xffffffffffffffff}),
                 "autorefresh": (["Yes", "No"], {"default": "No"}),
             },
         }
