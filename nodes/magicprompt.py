@@ -25,16 +25,22 @@ class DPMagicPrompt(DPAbstractSamplerNode):
         Using the sampling context, generate a new prompt.
         """
 
-        if seed > 0:
-            self.context.rand.seed(seed)
-
         if text.strip() == "":
+            self._current_prompt = text
+            self._last_generated_prompt = ""
             return ("",)
+
+        self.prepare_generation(text, seed)
+
+        if self.can_reuse_prompt(autorefresh):
+            return (self._last_generated_prompt,)
 
         try:
             prompt = self._prompt_generator.generate(text, 1)[0]
 
-            return (str(prompt),)
+            self._last_generated_prompt = str(prompt)
+
+            return (self._last_generated_prompt,)
         except Exception as e:
             logger.exception(e)
             return ("",)

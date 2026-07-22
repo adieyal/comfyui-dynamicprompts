@@ -17,7 +17,16 @@ class DPAbstractSamplerNode(ABC):
         return {
             "required": {
                 "text": ("STRING", {"multiline": True, "dynamicPrompts": False}),
-                "seed": ("INT", {"default": 0, "display": "number"}),
+                "seed": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 0xFFFFFFFFFFFFFFFF,
+                        "control_after_generate": "fixed",
+                        "display": "number",
+                    },
+                ),
                 "autorefresh": (["Yes", "No"], {"default": "No"}),
             },
         }
@@ -25,7 +34,8 @@ class DPAbstractSamplerNode(ABC):
     @classmethod
     def IS_CHANGED(cls, text: str, seed: int, autorefresh: str):
         # Force re-evaluation of the node
-        return float("NaN")
+        if autorefresh == "Yes":
+            return float("NaN")
 
     RETURN_TYPES = ("STRING",)
     FUNCTION = "get_prompt"
@@ -36,6 +46,9 @@ class DPAbstractSamplerNode(ABC):
         wildcards_folder = self._find_wildcards_folder()
         self._wildcard_manager = WildcardManager(path=wildcards_folder)
         self._current_prompt = None
+        self._last_generated_prompt = None
+        self._last_seed = None
+        self._prompts = None
 
     def _find_wildcards_folder(self) -> Path | None:
         """
@@ -78,20 +91,46 @@ class DPAbstractSamplerNode(ABC):
         """
         return self._current_prompt != text
 
+    def prepare_generation(self, text: str, seed: int) -> None:
+        """
+        Reset cached generation state only when inputs that define the prompt change.
+        """
+        prompt_changed = self.has_prompt_changed(text)
+        seed_changed = self._last_seed != seed
+
+        if prompt_changed:
+            self._current_prompt = text
+
+        if seed_changed:
+            if seed > 0:
+                self.context.rand.seed(seed)
+            self._last_seed = seed
+
+        if prompt_changed or seed_changed:
+            self._prompts = None
+            self._last_generated_prompt = None
+
+    def can_reuse_prompt(self, autorefresh: str) -> bool:
+        return autorefresh != "Yes" and self._last_generated_prompt is not None
+
     def get_prompt(self, text: str, seed: int, autorefresh: str) -> tuple[str]:
         """
         Main entrypoint for this node.
         Using the sampling context, generate a new prompt.
         """
 
-        if seed > 0:
-            self.context.rand.seed(seed)
-
         if text.strip() == "":
+            self._current_prompt = text
+            self._prompts = None
+            self._last_generated_prompt = ""
             return ("",)
 
-        if self.has_prompt_changed(text):
-            self._current_prompt = text
+        self.prepare_generation(text, seed)
+
+        if self.can_reuse_prompt(autorefresh):
+            return (self._last_generated_prompt,)
+
+        if self._prompts is None:
             self._prompts = self.context.sample_prompts(self._current_prompt)
 
         if self._prompts is None:
@@ -105,7 +144,9 @@ class DPAbstractSamplerNode(ABC):
         new_prompt = self._get_next_prompt(self._prompts, self._current_prompt)
         print(f"New prompt: {new_prompt}")
 
-        return (str(new_prompt),)
+        self._last_generated_prompt = str(new_prompt)
+
+        return (self._last_generated_prompt,)
 
     @abstractproperty
     def context(self) -> SamplingContext:
