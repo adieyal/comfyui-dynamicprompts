@@ -8,10 +8,9 @@ from pathlib import Path
 
 import pytest
 from conftest import REPO_ROOT, folder_paths, set_wildcard_roots
+from dynamicprompts.generators import CombinatorialPromptGenerator
 
 import nodes
-from dynamicprompts.generators import CombinatorialPromptGenerator
-from dynamicprompts.samplers.count import ExactCount, UnboundedCount
 from nodes import wildcards as wildcards_module
 from nodes.combinatorial import DPCombinatorialGenerator
 from nodes.jinja import DPJinja
@@ -196,18 +195,24 @@ def test_combinatorial_large_count_is_exact_and_index_wraps(wildcards: Path) -> 
     index = 50_000 + 65_536  # index % count = 50,000 > 10,000
     prompt, count = DPCombinatorialGenerator().get_prompt(template, index)
     assert count == 65_536
-    generator = CombinatorialPromptGenerator(wildcards_module.get_wildcard_manager(), seed=index)
+    generator = CombinatorialPromptGenerator(
+        wildcards_module.get_wildcard_manager(), seed=index
+    )
     assert prompt == generator.prompt_at(template, index % count)
 
 
 def test_combinatorial_index_fixes_random_choices(wildcards: Path) -> None:
+    """[SCENARIO SC15@1]"""
     template = "{~a|b|c|d|e|f|g|h} {x|y}"
     node = DPCombinatorialGenerator()
     first = node.get_prompt(template, 4)
     assert all(node.get_prompt(template, 4) == first for _ in range(5))
 
 
-def test_combinatorial_later_pass_keeps_combination_with_fresh_random_parts(wildcards: Path) -> None:
+def test_combinatorial_later_pass_keeps_combination_with_fresh_random_parts(
+    wildcards: Path,
+) -> None:
+    """[SCENARIO SC15@1]"""
     template = MANY_CHOICES.replace("{", "{~", 1) + " {x|y}"
     node = DPCombinatorialGenerator()
     first, count = node.get_prompt(template, 1)
@@ -217,82 +222,129 @@ def test_combinatorial_later_pass_keeps_combination_with_fresh_random_parts(wild
     assert len({first, *later}) > 1
 
 
-class FakeCombinatorialGenerator:
-    """Stands in for the library's generator: `result` is what count() returns."""
-
-    result: ExactCount | UnboundedCount = ExactCount(0, False)
-    seeds: list[int | None]
-    indexes: list[int]
-
-    def __init__(self, wildcard_manager: object, seed: int | None = None) -> None:
-        type(self).seeds.append(seed)
-
-    def count(self, template: str | None) -> ExactCount | UnboundedCount:
-        return self.result
-
-    def prompt_at(self, template: str, index: int) -> str:
-        type(self).indexes.append(index)
-        return f"{template}#{index}"
-
-
-def use_fake_generator(
-    monkeypatch: pytest.MonkeyPatch,
-    result: ExactCount | UnboundedCount,
-) -> type[FakeCombinatorialGenerator]:
-    fake = type(
-        "Fake",
-        (FakeCombinatorialGenerator,),
-        {"result": result, "seeds": [], "indexes": []},
-    )
-    monkeypatch.setattr("nodes.combinatorial.CombinatorialPromptGenerator", fake)
-    return fake
-
-
-def test_combinatorial_count_above_old_cap_passes_through(
-    wildcards: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_combinatorial_count_above_old_cap_passes_through(wildcards: Path) -> None:
     """[REQ BATCH.COUNT]"""
-    fake = use_fake_generator(monkeypatch, ExactCount(10**12, False))
-    prompt, count = DPCombinatorialGenerator().get_prompt("t", 7)
+    ten = "{0|1|2|3|4|5|6|7|8|9}"
+    template = " ".join([ten] * 12)  # 10**12 combinations
+    prompt, count = DPCombinatorialGenerator().get_prompt(template, 7)
     assert count == 10**12
-    assert prompt == "t#7"
-    assert fake.seeds == [7]
+    generator = CombinatorialPromptGenerator(
+        wildcards_module.get_wildcard_manager(), seed=7
+    )
+    assert prompt == generator.prompt_at(template, 7)
 
 
-def test_combinatorial_index_wraps(
-    wildcards: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_combinatorial_index_wraps(wildcards: Path) -> None:
     """[REQ BATCH.COUNT]"""
-    fake = use_fake_generator(monkeypatch, ExactCount(20_000, True))
+    # 3 random choices (counted as 1) * 2**5 * 5**4 = 20,000 combinations
+    template = "{~p|q|r} " + " ".join(["{a|b}"] * 5 + ["{1|2|3|4|5}"] * 4)
     node = DPCombinatorialGenerator()
-    assert node.get_prompt("t", 20_005) == ("t#5", 20_000)
-    assert node.get_prompt("t", 19_999) == ("t#19999", 20_000)
-    assert fake.indexes == [5, 19_999]
-    assert fake.seeds == [20_005, 19_999]
+    for index, position in [(20_005, 5), (19_999, 19_999)]:
+        prompt, count = node.get_prompt(template, index)
+        assert count == 20_000
+        generator = CombinatorialPromptGenerator(
+            wildcards_module.get_wildcard_manager(), seed=index
+        )
+        assert prompt == generator.prompt_at(template, position)
 
 
-def test_combinatorial_unbounded_raises(
-    wildcards: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_combinatorial_unbounded_raises(wildcards: Path) -> None:
     """[REQ BATCH.COUNT]"""
-    fake = use_fake_generator(monkeypatch, UnboundedCount())
+    write(wildcards / "rec.txt", "__rec__\n")
     with pytest.raises(ValueError, match="recursive wildcard.*unbounded"):
-        DPCombinatorialGenerator().get_prompt("t", 1)
-    assert fake.indexes == []
+        DPCombinatorialGenerator().get_prompt("__rec__", 1)
+
+
+def test_combinatorial_characters_times_outfits_cover_every_pair(
+    wildcards: Path,
+) -> None:
+    """[SCENARIO SC6@2]"""
+    template = "{Mira|Ash} in a {blue coat|red coat|green coat}"
+    node = DPCombinatorialGenerator()
+    results = [node.get_prompt(template, index) for index in range(6)]
+    prompts = [prompt for prompt, _ in results]
+    assert [count for _, count in results] == [6] * 6
+    assert len(set(prompts)) == 6
+    assert set(prompts) == {
+        f"{character} in a {outfit}"
+        for character in ("Mira", "Ash")
+        for outfit in ("blue coat", "red coat", "green coat")
+    }
+    assert node.get_prompt(template, 3) == results[3]
+
+
+def test_combinatorial_unbounded_raises_and_two_combinations_cycle(
+    wildcards: Path,
+) -> None:
+    """[SCENARIO SC7@2]"""
+    write(wildcards / "rec.txt", "__rec__\n")
+    node = DPCombinatorialGenerator()
+    with pytest.raises(ValueError, match="unbounded"):
+        node.get_prompt("__rec__", 1)
+    first, count = node.get_prompt("{a|b}", 0)
+    assert count == 2
+    assert node.get_prompt("{a|b}", 1)[0] != first
+    assert node.get_prompt("{a|b}", 2)[0] == first
+
+
+def test_combinatorial_duplicates_weight_and_missing_wildcard_is_one_combination(
+    wildcards: Path,
+) -> None:
+    """[SCENARIO SC16@1]"""
+    write(wildcards / "pets.txt", "cat\ndog\ncat\n")
+    node = DPCombinatorialGenerator()
+
+    count = node.get_prompt("{red|red|blue}", 0)[1]
+    assert count == 3
+    variants = [node.get_prompt("{red|red|blue}", index)[0] for index in range(count)]
+    assert sorted(variants) == ["blue", "red", "red"]
+
+    count = node.get_prompt("__pets__", 0)[1]
+    assert count == 3
+    lines = [node.get_prompt("__pets__", index)[0] for index in range(count)]
+    assert sorted(lines) == ["cat", "cat", "dog"]
+
+    assert node.get_prompt("__nope__", 0) == ("__nope__", 1)
+
+
+def test_random_keeps_duplicate_variant_options(wildcards: Path) -> None:
+    """[REQ COMPAT.DUPLICATES]"""
+    node = DPRandomGenerator()
+    seeds = range(900)
+    reds = sum(node.get_prompt("{red|red|blue}", s, "No")[0] == "red" for s in seeds)
+    # 2/3 expected with duplicates kept; 1/2 if they were dropped.
+    assert 0.58 < reds / len(seeds) < 0.75
+
+
+def test_combinatorial_missing_wildcard_inside_variant_is_one_option(
+    wildcards: Path,
+) -> None:
+    """[REQ COMPAT.DUPLICATES]"""
+    node = DPCombinatorialGenerator()
+    count = node.get_prompt("{a|__nope__}", 0)[1]
+    assert count == 2
+    prompts = {node.get_prompt("{a|__nope__}", index)[0] for index in range(count)}
+    assert prompts == {"a", "__nope__"}
+
+
+@pytest.mark.parametrize("template", ["{~a|b}", "{@a|b}"])
+def test_combinatorial_lone_random_or_cyclic_part_counts_once(
+    wildcards: Path,
+    template: str,
+) -> None:
+    """[REQ COMPAT.DUPLICATES]"""
+    node = DPCombinatorialGenerator()
+    prompt, count = node.get_prompt(template, 0)
+    assert count == 1
+    assert prompt in {"a", "b"}
 
 
 def test_combinatorial_zero_count_returns_empty(
     wildcards: Path,
-    monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """[REQ BATCH.COUNT]"""
-    fake = use_fake_generator(monkeypatch, ExactCount(0, False))
     assert DPCombinatorialGenerator().get_prompt("", 1) == ("", 0)
-    assert fake.indexes == []
     assert "no combinations" in caplog.text
 
 
