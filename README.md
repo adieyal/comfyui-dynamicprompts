@@ -49,7 +49,7 @@ Each node outputs a STRING. To use it as a prompt, drag the STRING output onto t
 ### Seeds and refreshing
 
 - **Random Prompts**: the same template, seed and wildcard files always give the same prompt. Set the seed's *control after generate* to `randomize` for a new prompt each run, or set `autorefresh` to Yes to ignore the seed.
-- **Combinatorial Prompts**: the seed picks which combination to output, and wraps around. The `combinations` output gives the total, so with the seed set to `increment` you walk through them all: `a {red|green|blue} ball` gives a red ball, a green ball, a blue ball, then a red ball again. At most 10,000 combinations are generated. `autorefresh` set to Yes picks a random combination each run.
+- **Combinatorial Prompts**: the seed picks which combination to output, and wraps around. The `combinations` output gives the exact total, however large the template, so with the seed set to `increment` you walk through them all: `a {red|green|blue} ball` gives a red ball, a green ball, a blue ball, then a red ball again. `autorefresh` set to Yes picks a random combination each run.
 - **Magic Prompt** works like Random Prompts.
 - **Jinja2 Templates** has no seed. The result is reused until the template or a wildcard file changes; set `autorefresh` to Yes to render it again on every run.
 

@@ -1,1 +1,1 @@
-dynamicprompts[yaml]>=0.33.2
+dynamicprompts[yaml]>=0.34.0

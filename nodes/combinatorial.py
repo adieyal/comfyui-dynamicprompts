@@ -4,14 +4,12 @@ import logging
 import random
 
 from dynamicprompts.generators import CombinatorialPromptGenerator
+from dynamicprompts.samplers.count import UnboundedCount
 
 from .sampler import Autorefresh, DPSeededNode
 from .wildcards import get_wildcard_manager
 
 logger = logging.getLogger(__name__)
-
-# Enumeration stops here so templates with huge (or endless) combinations stay usable.
-MAX_COMBINATIONS = 10_000
 
 
 class DPCombinatorialGenerator(DPSeededNode):
@@ -29,19 +27,19 @@ class DPCombinatorialGenerator(DPSeededNode):
             get_wildcard_manager(),
             seed=None if autorefresh == "Yes" else seed,
         )
-        prompts = generator.generate(text, max_prompts=MAX_COMBINATIONS)
-        count = len(prompts)
-        if count >= MAX_COMBINATIONS:
-            logger.warning(
-                "Template has at least %d combinations; only the first %d are used.",
-                MAX_COMBINATIONS,
-                MAX_COMBINATIONS,
+        result = generator.count(text)
+        if isinstance(result, UnboundedCount):
+            raise ValueError(
+                "Template contains a recursive wildcard, so its number of combinations is unbounded.",
             )
+        count = result.value
         if count == 0:
             logger.warning("Template produced no combinations: %r", text)
             return ("", 0)
+        if result.has_random_parts:
+            logger.debug("Template has random parts; the seed fixes their choices.")
 
         index = random.randrange(count) if autorefresh == "Yes" else seed % count
-        prompt = prompts[index]
+        prompt = generator.prompt_at(text, index)
         logger.info("Combinatorial prompt %d of %d: %s", index + 1, count, prompt)
         return (prompt, count)

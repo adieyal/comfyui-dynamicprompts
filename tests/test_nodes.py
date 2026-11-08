@@ -10,6 +10,8 @@ import pytest
 from conftest import REPO_ROOT, folder_paths, set_wildcard_roots
 
 import nodes
+from dynamicprompts.generators import CombinatorialPromptGenerator
+from dynamicprompts.samplers.count import ExactCount, UnboundedCount
 from nodes import wildcards as wildcards_module
 from nodes.combinatorial import DPCombinatorialGenerator
 from nodes.jinja import DPJinja
@@ -167,12 +169,24 @@ def test_save_to_metadata_disables_caching(wildcards: Path) -> None:
 
 
 def test_combinatorial_index_and_count(wildcards: Path) -> None:
+    """[REQ BATCH.COUNT]"""
     node = DPCombinatorialGenerator()
     assert DPCombinatorialGenerator.RETURN_TYPES == ("STRING", "INT")
     assert node.get_prompt("{a|b|c}", 0, "No") == ("a", 3)
     assert node.get_prompt("{a|b|c}", 2, "No") == ("c", 3)
     assert node.get_prompt("{a|b|c}", 4, "No") == ("b", 3)
     assert node.get_prompt("{a|b} {x|y}", 0, "No")[1] == 4
+
+
+def test_combinatorial_large_count_is_exact_and_index_wraps(wildcards: Path) -> None:
+    """[REQ BATCH.COUNT]"""
+    four = "{a|b|c|d}"
+    template = " ".join([four] * 8)  # 4**8 = 65,536 combinations
+    seed = 50_000 + 65_536  # seed % count = 50,000 > 10,000
+    prompt, count = DPCombinatorialGenerator().get_prompt(template, seed, "No")
+    assert count == 65_536
+    generator = CombinatorialPromptGenerator(wildcards_module.get_wildcard_manager(), seed=seed)
+    assert prompt == generator.prompt_at(template, seed % count)
 
 
 def test_combinatorial_seed_fixes_random_choices(wildcards: Path) -> None:
@@ -188,16 +202,102 @@ def test_combinatorial_autorefresh_picks_varying_index(wildcards: Path) -> None:
     assert len(prompts) > 1
 
 
-def test_combinatorial_cap(
+class FakeCombinatorialGenerator:
+    """Stands in for the library's generator: `result` is what count() returns."""
+
+    result: ExactCount | UnboundedCount = ExactCount(0, False)
+    seeds: list[int | None]
+    indexes: list[int]
+
+    def __init__(self, wildcard_manager: object, seed: int | None = None) -> None:
+        type(self).seeds.append(seed)
+
+    def count(self, template: str | None) -> ExactCount | UnboundedCount:
+        return self.result
+
+    def prompt_at(self, template: str, index: int) -> str:
+        type(self).indexes.append(index)
+        return f"{template}#{index}"
+
+
+def use_fake_generator(
+    monkeypatch: pytest.MonkeyPatch,
+    result: ExactCount | UnboundedCount,
+) -> type[FakeCombinatorialGenerator]:
+    fake = type(
+        "Fake",
+        (FakeCombinatorialGenerator,),
+        {"result": result, "seeds": [], "indexes": []},
+    )
+    monkeypatch.setattr("nodes.combinatorial.CombinatorialPromptGenerator", fake)
+    return fake
+
+
+def test_combinatorial_count_above_old_cap_passes_through(
+    wildcards: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """[REQ BATCH.COUNT]"""
+    fake = use_fake_generator(monkeypatch, ExactCount(10**12, False))
+    prompt, count = DPCombinatorialGenerator().get_prompt("t", 7, "No")
+    assert count == 10**12
+    assert prompt == "t#7"
+    assert fake.seeds == [7]
+
+
+def test_combinatorial_seed_wraps_to_index(
+    wildcards: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """[REQ BATCH.COUNT]"""
+    fake = use_fake_generator(monkeypatch, ExactCount(20_000, True))
+    node = DPCombinatorialGenerator()
+    assert node.get_prompt("t", 20_005, "No") == ("t#5", 20_000)
+    assert node.get_prompt("t", 19_999, "No") == ("t#19999", 20_000)
+    assert fake.indexes == [5, 19_999]
+
+
+def test_combinatorial_autorefresh_draws_from_full_count(
+    wildcards: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """[REQ BATCH.COUNT]"""
+    fake = use_fake_generator(monkeypatch, ExactCount(50_000, False))
+    drawn: list[int] = []
+
+    def fake_randrange(stop: int) -> int:
+        drawn.append(stop)
+        return 42_000
+
+    monkeypatch.setattr("nodes.combinatorial.random.randrange", fake_randrange)
+    assert DPCombinatorialGenerator().get_prompt("t", 3, "Yes") == ("t#42000", 50_000)
+    assert drawn == [50_000]
+    assert fake.seeds == [None]
+    assert fake.indexes == [42_000]
+
+
+def test_combinatorial_unbounded_raises(
+    wildcards: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """[REQ BATCH.COUNT]"""
+    fake = use_fake_generator(monkeypatch, UnboundedCount())
+    with pytest.raises(ValueError, match="recursive wildcard.*unbounded"):
+        DPCombinatorialGenerator().get_prompt("t", 1, "No")
+    assert fake.indexes == []
+
+
+def test_combinatorial_zero_count_returns_empty(
     wildcards: Path,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setattr("nodes.combinatorial.MAX_COMBINATIONS", 5)
-    prompt, count = DPCombinatorialGenerator().get_prompt(MANY_CHOICES, 7, "No")
-    assert count == 5
-    assert prompt == "option2"
-    assert "combinations" in caplog.text
+    """[REQ BATCH.COUNT]"""
+    fake = use_fake_generator(monkeypatch, ExactCount(0, False))
+    assert DPCombinatorialGenerator().get_prompt("", 1, "No") == ("", 0)
+    assert DPCombinatorialGenerator().get_prompt("", 1, "Yes") == ("", 0)
+    assert fake.indexes == []
+    assert "no combinations" in caplog.text
 
 
 def test_wildcard_edit_picked_up(wildcards: Path) -> None:
