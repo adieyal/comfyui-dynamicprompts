@@ -1,72 +1,85 @@
-# ComfyUI-DynamicPrompts Custom Nodes
+# Dynamic Prompts for ComfyUI
 
 <img src="images/example.png"/>
 
-ComfyUI-DynamicPrompts is a custom nodes library that integrates into your existing ComfyUI Library. It provides nodes that enable the use of [Dynamic Prompts](https://github.com/adieyal/dynamicprompts) in your ComfyUI. The nodes provided in this library are:
+ComfyUI nodes for [Dynamic Prompts](https://github.com/adieyal/dynamicprompts): write one template such as `a {red|green|blue} car by the {sea|mountains}` and get a different prompt on each run, or step through every combination. Wildcard files, Jinja2 templates and Magic Prompt are supported too.
 
-1. Random Prompts - Randomly samples variants and wildcards.
-2. Combinatorial Prompts - Walks through every possible combination of the variants and wildcards in a prompt.
-3. Magic Prompt - Employs a neural network to add relevant modifiers to your prompt. The model is loaded on first use, so ComfyUI starts quickly. It needs `transformers`, which is not installed automatically so that your existing version is left alone; most ComfyUI installs already have it.
-4. Jinja2 Templates - Allows you to write prompts using Jinja2 templates. Templates can call `wildcard("...")` and import other templates from the wildcard folder.
-5. OutputString - Deprecated and hidden from the node menu; it is kept so old workflows still load. To see a generated prompt, connect it to ComfyUI's Preview Any node.
+## Nodes
 
-The prompt syntax (variants, wildcards, weights and more) is described in the [Dynamic Prompts syntax docs](https://github.com/adieyal/dynamicprompts/blob/main/docs/SYNTAX.md).
+All nodes are in the **Dynamic Prompts** category.
 
-Nodes can be found in the Dynamic Prompts menu:
-<img src="images/menu.png"/>
+| Node | What it does |
+|---|---|
+| Random Prompts | Picks one random variant for each `{...}` and wildcard in the template. |
+| Combinatorial Prompts | Steps through every combination of the template, one per run. |
+| Jinja2 Templates | Renders a [Jinja2 template](https://github.com/adieyal/dynamicprompts#jinja2-templates); templates can call `wildcard("...")` and include other templates from the wildcard folders. |
+| Magic Prompt | Expands the prompt with a small language model that adds style and detail modifiers. |
 
-## Useful Links
-* [Dynamic Prompts Home](https://github.com/adieyal/dynamicprompts)
-* [Dynamic Prompts Syntax](https://github.com/adieyal/dynamicprompts/blob/main/docs/SYNTAX.md)
-* [Dynamic Prompts Extension for Auto1111](https://github.com/adieyal/sd-dynamic-prompts)
-* [Tutorial](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/tutorial.md)
-* [Online Resources](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/resources.md)
-* [CHANGELOG](./docs/CHANGELOG.md)
-* [Stable Diffusion SDXL Wildcards and ComfyUI](https://ericri.medium.com/stable-diffusion-sdxl-wildcards-and-comfyui-e8483e00e1c)
+The template syntax (variants, wildcards, weights, variables and more) is described in the [Dynamic Prompts syntax guide](https://github.com/adieyal/dynamicprompts/blob/main/docs/SYNTAX.md).
+
+OutputString, from earlier versions, is deprecated: it still loads in old workflows but is hidden from search. Use ComfyUI's **Preview Any** node to see a generated prompt.
 
 ## Installation
 
-### Using ComfyUI-Manager
-1. Install [ComfyUI-Manager](https://github.com/ltdrdata/ComfyUI-Manager) if it isn't already.
-2. Press Install Custom Nodes from the ComfyUI-Manager menu
-3. Search for dynamicprompts
-4. Click install
+**ComfyUI-Manager:** open the Manager, choose **Custom Nodes Manager**, search for `dynamicprompts` and install **Dynamic Prompts**. Restart ComfyUI.
 
-### Manual installation
+**comfy-cli:**
 
-Follow the steps below to install the ComfyUI-DynamicPrompts Library. These commands assume the your current working directory is the ComfyUI root directory.
+```
+comfy node install comfyui-dynamicprompts
+```
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/adieyal/comfyui-dynamicprompts custom_nodes/comfyui-dynamicprompts
-   ```
-2. Install the required Python packages:
-   ```
-   python -m pip install -r custom_nodes/comfyui-dynamicprompts/requirements.txt
-   ```
-3. (Optional) download a wildcard collection and copy it into `ComfyUI/wildcards` (see Wildcards below).
-4. Restart your ComfyUI.
-5. Example workflows can be found in `custom_nodes/comfyui-dynamicprompts/example_workflows`.
+**Manually**, from the ComfyUI folder:
 
-## Wildcards
-Put wildcard files in `ComfyUI/wildcards` or in this extension's `wildcards` folder (`custom_nodes/comfyui-dynamicprompts/wildcards`). Extra folders can be added under a `wildcards` key in ComfyUI's `extra_model_paths.yaml`. Wildcard files can be `.txt`, `.json` or `.yaml` ([example format](https://github.com/adieyal/sd-dynamic-prompts/blob/main/collections/publicprompts.yaml)). Edits are picked up on the next run, so you don't need to restart ComfyUI.
+```
+git clone https://github.com/adieyal/comfyui-dynamicprompts custom_nodes/comfyui-dynamicprompts
+python -m pip install -r custom_nodes/comfyui-dynamicprompts/requirements.txt
+```
 
-There are many pre-built wildcards collections available. Here are a few to get you started:
-* [SD Dynamic Prompts built-in](https://github.com/adieyal/sd-dynamic-prompts/tree/main/collections)
-* [Civitai wildcard packs](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/resources.md#wildcard-packs)
+Then restart ComfyUI.
 
+## Using the nodes
 
-## Node Outputs
+Double-click the canvas and search for `dynamic`, or open the Node Library and look under **Dynamic Prompts**.
 
-All nodes in this library produce a String output that can typically be passed into Clip Text Encode Prompts. Both positive and negative nodes are supported.
+<img src="images/menu.png"/>
 
-Seeds and refreshing:
+Each node outputs a STRING. To use it as a prompt, drag the STRING output onto the text box of **CLIP Text Encode** (or any node with a text input); the text box turns into an input. Add a second node for the negative prompt if you want that randomised too.
 
-- **Random Prompts**: the same text, seed and wildcard files give the same prompt. The seed widget has "control after generate" (fixed, increment, decrement or randomize). Setting `autorefresh` to Yes gives a new random prompt on every run, whatever the seed.
-- **Combinatorial Prompts**: the seed is the index of the combination to output, and it wraps around. A second output gives the total number of combinations, so setting the seed to increment walks through all of them. For example, A `{red|green|blue}` ball gives A red ball, A green ball, A blue ball, then A red ball again. Setting `autorefresh` to Yes picks a random combination on every run.
-- **Magic Prompt** works like Random Prompts: the same text and seed give the same prompt, and `autorefresh` set to Yes gives a new prompt on every run.
-- **Jinja2 Templates** has no seed. With `autorefresh` set to No, the result is reused until the template or the wildcard files change; with Yes, the template is rendered again on every run.
+### Seeds and refreshing
+
+- **Random Prompts**: the same template, seed and wildcard files always give the same prompt. Set the seed's *control after generate* to `randomize` for a new prompt each run, or set `autorefresh` to Yes to ignore the seed.
+- **Combinatorial Prompts**: the seed picks which combination to output, and wraps around. The `combinations` output gives the total, so with the seed set to `increment` you walk through them all: `a {red|green|blue} ball` gives a red ball, a green ball, a blue ball, then a red ball again. At most 10,000 combinations are generated. `autorefresh` set to Yes picks a random combination each run.
+- **Magic Prompt** works like Random Prompts.
+- **Jinja2 Templates** has no seed. The result is reused until the template or a wildcard file changes; set `autorefresh` to Yes to render it again on every run.
 
 ### Saving the prompt in the image
 
-ComfyUI's image metadata stores the template (`a {red|blue} ball`), not the prompt the node generated. Set `save_to_metadata` to Yes on a node to also store the generated prompt: images saved by Save Image get a `dynamicprompts` entry such as `{"5": "a blue ball"}`, keyed by node id. A cached node can't write metadata, so with this option on the node runs on every queue.
+ComfyUI's image metadata stores the template (`a {red|blue} ball`), not the prompt that was generated. Set `save_to_metadata` to Yes on a node to also store the generated prompt: images saved with Save Image get a `dynamicprompts` entry such as `{"5": "a blue ball"}`, keyed by node id. With this on, the node runs on every queue instead of being cached, because a cached node can't write metadata.
+
+## Wildcards
+
+Put wildcard files in `ComfyUI/wildcards` or in the extension's own `wildcards` folder. More folders can be added under a `wildcards` key in ComfyUI's `extra_model_paths.yaml`. Files can be `.txt`, `.json` or `.yaml` (see [file formats](https://github.com/adieyal/dynamicprompts/blob/main/docs/SYNTAX.md#file-formats)), and a file at `wildcards/animals/cats.txt` is used as `__animals/cats__`. Edits are picked up on the next run without restarting ComfyUI.
+
+Ready-made collections to start with:
+
+- [Dynamic Prompts collections](https://github.com/adieyal/sd-dynamic-prompts/tree/main/collections)
+- [More wildcard packs](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/resources.md#wildcard-packs)
+
+## Magic Prompt
+
+Magic Prompt uses the [MagicPrompt-Stable-Diffusion](https://huggingface.co/Gustavosta/MagicPrompt-Stable-Diffusion) model, which is downloaded (about 500 MB) the first time the node runs and kept in the Hugging Face cache (`~/.cache/huggingface`, or `HF_HOME`). It needs the `transformers` package, which ComfyUI already installs; the extension doesn't install or change it. If the download fails, the error is shown in ComfyUI and the next run tries again.
+
+## Example workflows
+
+The `example_workflows` folder has a workflow for each node. Drag one onto the ComfyUI canvas to load it. They use the Stable Diffusion 1.5 checkpoint `v1-5-pruned-emaonly`; pick any checkpoint you have in Load Checkpoint.
+
+## Links
+
+- [Dynamic Prompts library](https://github.com/adieyal/dynamicprompts)
+- [Syntax guide](https://github.com/adieyal/dynamicprompts/blob/main/docs/SYNTAX.md)
+- [Dynamic Prompts for Automatic1111](https://github.com/adieyal/sd-dynamic-prompts)
+- [Tutorial](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/tutorial.md)
+- [Online resources](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/resources.md)
+- [Stable Diffusion SDXL Wildcards and ComfyUI](https://ericri.medium.com/stable-diffusion-sdxl-wildcards-and-comfyui-e8483e00e1c)
+- [Changelog](./docs/CHANGELOG.md)
