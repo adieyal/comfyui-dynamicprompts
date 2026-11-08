@@ -1,6 +1,11 @@
+from __future__ import annotations
+
+from typing import Any
+
+
 class OutputString:
     @classmethod
-    def INPUT_TYPES(cls):
+    def INPUT_TYPES(cls) -> dict[str, dict[str, tuple[Any, ...]]]:
         return {
             "required": {
                 "text": ("STRING", {}),
@@ -14,5 +19,5 @@ class OutputString:
 
     CATEGORY = "utils"
 
-    def output_string(self, string):
-        return ({"ui": {"string": string}},)
+    def output_string(self, text: str) -> dict[str, dict[str, list[str]]]:
+        return {"ui": {"text": [text]}}

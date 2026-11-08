@@ -1,0 +1,242 @@
+from __future__ import annotations
+
+import math
+import subprocess
+import sys
+import types
+from pathlib import Path
+
+import pytest
+from conftest import REPO_ROOT, folder_paths, set_wildcard_roots
+
+import nodes
+from nodes import wildcards as wildcards_module
+from nodes.combinatorial import DPCombinatorialGenerator
+from nodes.jinja import DPJinja
+from nodes.magicprompt import DPMagicPrompt
+from nodes.output_node import OutputString
+from nodes.random import DPRandomGenerator
+
+MANY_CHOICES = "{" + "|".join(f"option{i}" for i in range(50)) + "}"
+
+
+def write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+
+
+def test_mappings_keep_keys_and_drop_feeling_lucky() -> None:
+    expected = {
+        "DPRandomGenerator",
+        "DPCombinatorialGenerator",
+        "DPJinja",
+        "DPMagicPrompt",
+        "DPOutput",
+    }
+    assert set(nodes.NODE_CLASS_MAPPINGS) == expected
+    assert set(nodes.NODE_DISPLAY_NAME_MAPPINGS) == expected
+
+
+@pytest.mark.parametrize(
+    ("node", "names"),
+    [
+        (DPRandomGenerator, ["text", "seed", "autorefresh"]),
+        (DPCombinatorialGenerator, ["text", "seed", "autorefresh"]),
+        (DPMagicPrompt, ["text", "seed", "autorefresh"]),
+        (DPJinja, ["text", "autorefresh"]),
+        (OutputString, ["text"]),
+    ],
+)
+def test_input_names_and_order(node: type, names: list[str]) -> None:
+    assert list(node.INPUT_TYPES()["required"]) == names
+
+
+def test_register_wildcard_folders() -> None:
+    saved = folder_paths.folder_names_and_paths.pop("wildcards", None)
+    try:
+        wildcards_module.register_wildcard_folders()
+        registered = folder_paths.get_folder_paths("wildcards")
+    finally:
+        if saved is not None:
+            folder_paths.folder_names_and_paths["wildcards"] = saved
+    assert registered == [
+        str(Path(folder_paths.base_path) / "wildcards"),
+        str(REPO_ROOT / "wildcards"),
+    ]
+    assert (REPO_ROOT / "wildcards").is_dir()
+
+
+def test_random_seed_is_deterministic(wildcards: Path) -> None:
+    node = DPRandomGenerator()
+    first = node.get_prompt(MANY_CHOICES, 42, "No")
+    assert node.get_prompt(MANY_CHOICES, 42, "No") == first
+    others = {node.get_prompt(MANY_CHOICES, seed, "No")[0] for seed in range(10)}
+    assert len(others) > 1
+
+
+def test_random_large_seed(wildcards: Path) -> None:
+    node = DPRandomGenerator()
+    assert node.get_prompt(MANY_CHOICES, 0xFFFFFFFFFFFFFFFF, "No")[0].startswith(
+        "option",
+    )
+
+
+def test_random_autorefresh_ignores_seed(wildcards: Path) -> None:
+    node = DPRandomGenerator()
+    prompts = {node.get_prompt(MANY_CHOICES, 1, "Yes")[0] for _ in range(10)}
+    assert len(prompts) > 1
+
+
+def test_node_instances_are_independent(wildcards: Path) -> None:
+    a, b = DPRandomGenerator(), DPRandomGenerator()
+    expected = a.get_prompt(MANY_CHOICES, 7, "No")
+    b.get_prompt(MANY_CHOICES, 8, "No")
+    b.get_prompt("{x|y}", 9, "No")
+    assert a.get_prompt(MANY_CHOICES, 7, "No") == expected
+    assert DPRandomGenerator().get_prompt(MANY_CHOICES, 7, "No") == expected
+
+
+def test_is_changed(wildcards: Path) -> None:
+    key = DPRandomGenerator.IS_CHANGED("a {b|c}", 1, "No")
+    assert DPRandomGenerator.IS_CHANGED("a {b|c}", 1, "No") == key
+    assert DPRandomGenerator.IS_CHANGED("a {b|c}", 2, "No") != key
+    assert DPRandomGenerator.IS_CHANGED("a {b|d}", 1, "No") != key
+
+    write(wildcards / "colors.txt", "red\n")
+    after_add = DPRandomGenerator.IS_CHANGED("a {b|c}", 1, "No")
+    assert after_add != key
+    write(wildcards / "colors.txt", "red\nblue\n")
+    assert DPRandomGenerator.IS_CHANGED("a {b|c}", 1, "No") != after_add
+
+    assert math.isnan(DPRandomGenerator.IS_CHANGED("a {b|c}", 1, "Yes"))
+
+
+def test_jinja_is_changed(wildcards: Path) -> None:
+    key = DPJinja.IS_CHANGED("{{ 1 }}", "No")
+    assert DPJinja.IS_CHANGED("{{ 1 }}", "No") == key
+    assert DPJinja.IS_CHANGED("{{ 2 }}", "No") != key
+    write(wildcards / "sub" / "x.txt", "x\n")
+    assert DPJinja.IS_CHANGED("{{ 1 }}", "No") != key
+    assert math.isnan(DPJinja.IS_CHANGED("{{ 1 }}", "Yes"))
+
+
+def test_combinatorial_index_and_count(wildcards: Path) -> None:
+    node = DPCombinatorialGenerator()
+    assert DPCombinatorialGenerator.RETURN_TYPES == ("STRING", "INT")
+    assert node.get_prompt("{a|b|c}", 0, "No") == ("a", 3)
+    assert node.get_prompt("{a|b|c}", 2, "No") == ("c", 3)
+    assert node.get_prompt("{a|b|c}", 4, "No") == ("b", 3)
+    assert node.get_prompt("{a|b} {x|y}", 0, "No")[1] == 4
+
+
+def test_combinatorial_autorefresh_picks_varying_index(wildcards: Path) -> None:
+    node = DPCombinatorialGenerator()
+    prompts = {node.get_prompt(MANY_CHOICES, 0, "Yes")[0] for _ in range(10)}
+    assert len(prompts) > 1
+
+
+def test_combinatorial_cap(
+    wildcards: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setattr("nodes.combinatorial.MAX_COMBINATIONS", 5)
+    prompt, count = DPCombinatorialGenerator().get_prompt(MANY_CHOICES, 7, "No")
+    assert count == 5
+    assert prompt == "option2"
+    assert "combinations" in caplog.text
+
+
+def test_wildcard_edit_picked_up(wildcards: Path) -> None:
+    node = DPRandomGenerator()
+    write(wildcards / "animal.txt", "cat\n")
+    assert node.get_prompt("__animal__", 1, "No") == ("cat",)
+    write(wildcards / "animal.txt", "giraffe\n")
+    assert node.get_prompt("__animal__", 1, "No") == ("giraffe",)
+    write(wildcards / "plant.txt", "fern\n")
+    assert node.get_prompt("__plant__", 1, "No") == ("fern",)
+
+
+def test_multiple_wildcard_roots(tmp_path: Path) -> None:
+    first, second = tmp_path / "one", tmp_path / "two"
+    write(first / "animal.txt", "cat\n")
+    write(second / "nested" / "plant.txt", "fern\n")
+    set_wildcard_roots(first, second, tmp_path / "missing")
+    node = DPCombinatorialGenerator()
+    assert node.get_prompt("__animal__ __nested/plant__", 0, "No") == (
+        "cat fern",
+        1,
+    )
+
+
+def test_jinja_wildcard(wildcards: Path) -> None:
+    write(wildcards / "colors.txt", "red\nblue\n")
+    result = DPJinja().get_prompt('{{ wildcard("colors") | join(",") }}', "No")
+    assert result == ("blue,red",)
+
+
+def test_output_string() -> None:
+    assert OutputString().output_string(text="hello") == {"ui": {"text": ["hello"]}}
+    assert OutputString.OUTPUT_NODE is True
+
+
+def test_magicprompt_seeded_with_fake_generator(
+    wildcards: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[int | None] = []
+
+    class FakeMagicPromptGenerator:
+        def __init__(self, prompt_generator: object, seed: int | None) -> None:
+            calls.append(seed)
+            self._inner = prompt_generator
+
+        def generate(self, text: str, num: int) -> list[str]:
+            return [f"{self._inner.generate(text, num)[0]}, magic"]  # type: ignore[attr-defined]
+
+    fake = types.ModuleType("dynamicprompts.generators.magicprompt")
+    fake.MagicPromptGenerator = FakeMagicPromptGenerator  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "dynamicprompts.generators.magicprompt", fake)
+
+    node = DPMagicPrompt()
+    first = node.get_prompt(MANY_CHOICES, 2**32 + 5, "No")
+    assert first == node.get_prompt(MANY_CHOICES, 2**32 + 5, "No")
+    assert first[0].endswith(", magic")
+    node.get_prompt(MANY_CHOICES, 3, "Yes")
+    assert calls == [5, 5, None]
+
+
+def test_magicprompt_failure_is_logged(
+    wildcards: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setitem(sys.modules, "dynamicprompts.generators.magicprompt", None)
+    assert DPMagicPrompt().get_prompt("a cat", 1, "No") == ("",)
+    assert "MagicPrompt failed" in caplog.text
+    assert "Traceback" in caplog.text
+
+
+def test_import_does_not_import_transformers(tmp_path: Path) -> None:
+    script = f"""
+import sys, types
+sys.modules["transformers"] = None  # any import of transformers now fails
+fp = types.ModuleType("folder_paths")
+fp.base_path = {str(tmp_path)!r}
+store = {{}}
+fp.add_model_folder_path = lambda n, p, is_default=False: store.setdefault(n, []).append(p)
+fp.get_folder_paths = lambda n: list(store.get(n, []))
+sys.modules["folder_paths"] = fp
+sys.path.insert(0, {str(REPO_ROOT)!r})
+import nodes
+assert "dynamicprompts.generators.magicprompt" not in sys.modules
+print(sorted(nodes.NODE_CLASS_MAPPINGS))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "DPMagicPrompt" in result.stdout

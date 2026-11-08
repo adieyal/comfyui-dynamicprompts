@@ -1,44 +1,36 @@
+from __future__ import annotations
+
 import logging
 
 from dynamicprompts.generators import RandomPromptGenerator
-from dynamicprompts.generators.magicprompt import MagicPromptGenerator
-from dynamicprompts.sampling_context import SamplingContext
 
-from .sampler import DPAbstractSamplerNode
+from .sampler import Autorefresh, DPSeededNode
+from .wildcards import get_wildcard_manager
 
 logger = logging.getLogger(__name__)
 
+# transformers.set_seed seeds numpy, which only accepts 32-bit seeds.
+_SEED_MODULUS = 2**32
 
-class DPMagicPrompt(DPAbstractSamplerNode):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._random_generator = RandomPromptGenerator(
-            wildcard_manager=self._wildcard_manager,
-        )
-        self._prompt_generator = MagicPromptGenerator(
-            prompt_generator=self._random_generator,
-        )
 
-    def get_prompt(self, text: str, seed: int, autorefresh: str) -> tuple[str]:
-        """
-        Main entrypoint for this node.
-        Using the sampling context, generate a new prompt.
-        """
-
-        if seed > 0:
-            self.context.rand.seed(seed)
-
-        if text.strip() == "":
-            return ("",)
-
+class DPMagicPrompt(DPSeededNode):
+    def get_prompt(self, text: str, seed: int, autorefresh: Autorefresh) -> tuple[str]:
+        run_seed = None if autorefresh == "Yes" else seed % _SEED_MODULUS
         try:
-            prompt = self._prompt_generator.generate(text, 1)[0]
+            # Imported here so that loading the package never imports transformers.
+            # The library keeps the loaded pipeline on the class, so the model loads once.
+            from dynamicprompts.generators.magicprompt import MagicPromptGenerator
 
-            return (str(prompt),)
-        except Exception as e:
-            logger.exception(e)
+            generator = MagicPromptGenerator(
+                prompt_generator=RandomPromptGenerator(
+                    get_wildcard_manager(),
+                    seed=run_seed,
+                ),
+                seed=run_seed,
+            )
+            prompt = str(generator.generate(text, 1)[0])
+        except Exception:
+            logger.exception("MagicPrompt failed for %r", text)
             return ("",)
-
-    @property
-    def context(self) -> SamplingContext:
-        return self._random_generator._context
+        logger.info("Magic prompt: %s", prompt)
+        return (prompt,)

@@ -1,16 +1,21 @@
-from functools import lru_cache
+from __future__ import annotations
 
-from dynamicprompts.enums import SamplingMethod
-from dynamicprompts.sampling_context import SamplingContext
+import logging
 
-from .sampler import DPAbstractSamplerNode
+from dynamicprompts.generators import RandomPromptGenerator
+
+from .sampler import Autorefresh, DPSeededNode
+from .wildcards import get_wildcard_manager
+
+logger = logging.getLogger(__name__)
 
 
-class DPRandomGenerator(DPAbstractSamplerNode):
-    @property
-    @lru_cache(maxsize=1)
-    def context(self) -> SamplingContext:
-        return SamplingContext(
-            wildcard_manager=self._wildcard_manager,
-            default_sampling_method=SamplingMethod.RANDOM,
+class DPRandomGenerator(DPSeededNode):
+    def get_prompt(self, text: str, seed: int, autorefresh: Autorefresh) -> tuple[str]:
+        generator = RandomPromptGenerator(
+            get_wildcard_manager(),
+            seed=None if autorefresh == "Yes" else seed,
         )
+        prompt = str(generator.generate(text, 1)[0])
+        logger.info("Random prompt: %s", prompt)
+        return (prompt,)

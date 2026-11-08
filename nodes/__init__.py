@@ -1,14 +1,15 @@
 from .combinatorial import DPCombinatorialGenerator
-from .feeling_lucky import DPFeelingLucky
 from .jinja import DPJinja
 from .magicprompt import DPMagicPrompt
 from .output_node import OutputString
 from .random import DPRandomGenerator
+from .wildcards import register_wildcard_folders
+
+register_wildcard_folders()
 
 NODE_CLASS_MAPPINGS = {
     "DPRandomGenerator": DPRandomGenerator,
     "DPCombinatorialGenerator": DPCombinatorialGenerator,
-    "DPFeelingLucky": DPFeelingLucky,
     "DPJinja": DPJinja,
     "DPMagicPrompt": DPMagicPrompt,
     "DPOutput": OutputString,
@@ -18,7 +19,6 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "DPRandomGenerator": "Random Prompts",
     "DPCombinatorialGenerator": "Combinatorial Prompts",
-    "DPFeelingLucky": "I'm Feeling Lucky",
     "DPJinja": "Jinja2 Templates",
     "DPMagicPrompt": "Magic Prompt",
     "DPOutput": "OutputString",
