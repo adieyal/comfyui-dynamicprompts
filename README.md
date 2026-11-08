@@ -66,3 +66,7 @@ Seeds and refreshing:
 - **Combinatorial Prompts**: the seed is the index of the combination to output, and it wraps around. A second output gives the total number of combinations, so setting the seed to increment walks through all of them. For example, A `{red|green|blue}` ball gives A red ball, A green ball, A blue ball, then A red ball again. Setting `autorefresh` to Yes picks a random combination on every run.
 - **Magic Prompt** works like Random Prompts: the same text and seed give the same prompt, and `autorefresh` set to Yes gives a new prompt on every run.
 - **Jinja2 Templates** has no seed. With `autorefresh` set to No, the result is reused until the template or the wildcard files change; with Yes, the template is rendered again on every run.
+
+### Saving the prompt in the image
+
+ComfyUI's image metadata stores the template (`a {red|blue} ball`), not the prompt the node generated. Set `save_to_metadata` to Yes on a node to also store the generated prompt: images saved by Save Image get a `dynamicprompts` entry such as `{"5": "a blue ball"}`, keyed by node id. A cached node can't write metadata, so with this option on the node runs on every queue.
