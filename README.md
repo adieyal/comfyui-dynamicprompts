@@ -40,9 +40,9 @@ Then restart ComfyUI.
 
 ## Using the nodes
 
-Double-click the canvas and search for `dynamic`, or open the Node Library and look under **Dynamic Prompts**.
+Double-click the canvas and search for a node by name (for example `Random Prompts`), or open the **Nodes** sidebar and look under **Dynamic Prompts** in the Extensions section.
 
-<img src="images/menu.png"/>
+<img src="images/menu.png" width="300"/>
 
 Each node outputs a STRING. To use it as a prompt, drag the STRING output onto the text box of **CLIP Text Encode** (or any node with a text input); the text box turns into an input. Add a second node for the negative prompt if you want that randomised too.
 
