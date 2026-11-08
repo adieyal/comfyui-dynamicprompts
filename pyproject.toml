@@ -40,3 +40,6 @@ unfixable = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The repo root is the ComfyUI package (it has an __init__.py with relative imports);
+# stop pytest from importing it while looking for conftest files.
+addopts = ["--confcutdir=tests"]
