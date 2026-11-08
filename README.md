@@ -4,22 +4,24 @@
 
 ComfyUI-DynamicPrompts is a custom nodes library that integrates into your existing ComfyUI Library. It provides nodes that enable the use of [Dynamic Prompts](https://github.com/adieyal/dynamicprompts) in your ComfyUI. The nodes provided in this library are:
 
-1. [Random Prompts](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/SYNTAX.md#variants) - Implements standard wildcard mode for random sampling of variants and wildcards.
-2. [Combinatorial Prompts](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/SYNTAX.md#combinatorial-sampler) - Iterates through every possible combination of random values in a prompt.
-3. [I'm Feeling Lucky](https://github.com/adieyal/dynamicprompts#im-feeling-lucky) - Uses the given prompt to download a related prompt from Lexica.art.
-4. [Magic Prompt](https://github.com/adieyal/dynamicprompts#magic-prompt) - Employs a neural network to add relevant modifiers to your prompt.
-5. [Jinja2 Templates](https://github.com/adieyal/dynamicprompts#jinja2-templates) - Allows you to write prompts using Jinja2 templates.
+1. Random Prompts - Randomly samples variants and wildcards.
+2. Combinatorial Prompts - Walks through every possible combination of the variants and wildcards in a prompt.
+3. Magic Prompt - Employs a neural network to add relevant modifiers to your prompt. The model is loaded on first use, so ComfyUI starts quickly.
+4. Jinja2 Templates - Allows you to write prompts using Jinja2 templates. Templates can call `wildcard("...")` and import other templates from the wildcard folder.
+5. OutputString - Shows a string and passes it on.
+
+The prompt syntax (variants, wildcards, weights and more) is described in the [Dynamic Prompts syntax docs](https://github.com/adieyal/dynamicprompts/blob/main/docs/SYNTAX.md).
 
 Nodes can be found in the Dynamic Prompts menu:
 <img src="images/menu.png"/>
 
 ## Useful Links
 * [Dynamic Prompts Home](https://github.com/adieyal/dynamicprompts)
-* [Dynamic Prompts Syntax](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/SYNTAX.md)
+* [Dynamic Prompts Syntax](https://github.com/adieyal/dynamicprompts/blob/main/docs/SYNTAX.md)
 * [Dynamic Prompts Extension for Auto1111](https://github.com/adieyal/sd-dynamic-prompts)
 * [Tutorial](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/tutorial.md)
 * [Online Resources](https://github.com/adieyal/sd-dynamic-prompts/blob/main/docs/resources.md)
-* [CHANGELOG](./CHANGELOG.md)
+* [CHANGELOG](./docs/CHANGELOG.md)
 * [Stable Diffusion SDXL Wildcards and ComfyUI](https://ericri.medium.com/stable-diffusion-sdxl-wildcards-and-comfyui-e8483e00e1c)
 
 ## Installation
@@ -42,17 +44,12 @@ Follow the steps below to install the ComfyUI-DynamicPrompts Library. These comm
    ```
    python -m pip install -r custom_nodes/comfyui-dynamicprompts/requirements.txt
    ```
-3. Run install.py:
-   ```
-   python custom_nodes/comfyui-dynamicprompts/install.py
-   ```
-4. `mkdir custom_nodes/comfyui-dynamicprompts/wildcards`
-5. (Optional) download a wildcard collection and copy it into this new wildcards folder.
-6. Restart your ComfyUI.
-7. Example workflows can be found in `custom_nodes/comfyui-dynamicprompts/example_workflows`.
+3. (Optional) download a wildcard collection and copy it into `ComfyUI/wildcards` (see Wildcards below).
+4. Restart your ComfyUI.
+5. Example workflows can be found in `custom_nodes/comfyui-dynamicprompts/example_workflows`.
 
 ## Wildcards
-The extension looks for wildcard files in `custom_nodes/comfyui-dynamicprompts/wildcards`. It supports wildcard files in `.txt`, .`json` and .`yaml` ([example format](https://github.com/adieyal/sd-dynamic-prompts/blob/main/collections/publicprompts.yaml)).
+Put wildcard files in `ComfyUI/wildcards` or in this extension's `wildcards` folder (`custom_nodes/comfyui-dynamicprompts/wildcards`). Extra folders can be added under a `wildcards` key in ComfyUI's `extra_model_paths.yaml`. Wildcard files can be `.txt`, `.json` or `.yaml` ([example format](https://github.com/adieyal/sd-dynamic-prompts/blob/main/collections/publicprompts.yaml)). Edits are picked up on the next run, so you don't need to restart ComfyUI.
 
 There are many pre-built wildcards collections available. Here are a few to get you started:
 * [SD Dynamic Prompts built-in](https://github.com/adieyal/sd-dynamic-prompts/tree/main/collections)
@@ -63,20 +60,8 @@ There are many pre-built wildcards collections available. Here are a few to get 
 
 All nodes in this library produce a String output that can typically be passed into Clip Text Encode Prompts. Both positive and negative nodes are supported.
 
-Please note, since ComfyUI is inherently stateless, some nodes might have a slightly unexpected behavior:
+Seeds and refreshing:
 
-- The Combinatorial Prompt generation iterates through all possible values in a cycle. For example, A `{red|green|blue}` ball will generate the following sequence:
-  - A red ball
-  - A green ball
-  - A blue ball
-  - A red ball
-  - ...
-
-- The I'm Feeling Lucky, Magic Prompt, and Jinja2 nodes have an optional auto refresh parameter. If set to `True`, a new prompt is generated for every iteration. However, if set to `False`, a prompt will be downloaded once and used for subsequent generations.
-
-## Roadmap
-
-1. This is a quick and dirty release with some known limitations such as non-configurable random seeds, inability to select the MagicPrompt model, and absence of several other configuration features.
-2. Currently, the only way to view the generated prompt is through console output. A future release will introduce nodes to display the generate prompt on screen and to write it to a file.
-3. It is not currently possible to chain generators, this functionality will be added in future releases.
-5. The installation script will be  automated in the future for ease of use.
+- **Random Prompts**: the same text, seed and wildcard files give the same prompt. The seed widget has "control after generate" (fixed, increment, decrement or randomize). Setting `autorefresh` to Yes gives a new random prompt on every run, whatever the seed.
+- **Combinatorial Prompts**: the seed is the index of the combination to output, and it wraps around. A second output gives the total number of combinations, so setting the seed to increment walks through all of them. For example, A `{red|green|blue}` ball gives A red ball, A green ball, A blue ball, then A red ball again. Setting `autorefresh` to Yes picks a random combination on every run.
+- **Magic Prompt** and **Jinja2 Templates** also have an `autorefresh` option. If it is Yes, a new prompt is generated on every run; if it is No, the same seed gives the same prompt.

@@ -1,12 +1,23 @@
 [project]
-name = "ComfyUI - Dynamic Prompts"
-version = "0.2.1"
+name = "comfyui-dynamicprompts"
+version = "0.3.0"
+description = "ComfyUI nodes for Dynamic Prompts: random and combinatorial prompts, wildcards, Jinja2 templates and Magic Prompt."
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
 dependencies = [
-    "dynamicprompts[attentiongrabber,magicprompt]~=0.30.2",
+    "dynamicprompts[attentiongrabber,magicprompt]>=0.33.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/adieyal/comfyui-dynamicprompts"
+
+[tool.comfy]
+DisplayName = "Dynamic Prompts"
 
 [tool.ruff]
 target-version = "py310"
+
+[tool.ruff.lint]
 select = [
     "B",
     "C",
@@ -24,3 +35,6 @@ ignore = [
 unfixable = [
     "B007", # Loop control variable not used within the loop body
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
