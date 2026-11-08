@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-dynamicprompts"
-version = "0.3.1"
+version = "0.4.0"
 description = "ComfyUI nodes for Dynamic Prompts: random and combinatorial prompts, wildcards, Jinja2 templates and Magic Prompt."
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
