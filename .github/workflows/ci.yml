@@ -28,5 +28,5 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       # The magicprompt extra is left out to avoid installing torch; tests don't load transformers.
-      - run: pip install "dynamicprompts>=0.33.0" jinja2 pyyaml pytest
+      - run: pip install "dynamicprompts>=0.33.1" jinja2 pyyaml pytest
       - run: pytest

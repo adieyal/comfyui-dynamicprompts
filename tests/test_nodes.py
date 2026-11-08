@@ -175,6 +175,15 @@ def test_jinja_wildcard(wildcards: Path) -> None:
     assert result == ("blue,red",)
 
 
+def test_jinja_includes_templates_from_every_wildcard_folder(tmp_path: Path) -> None:
+    first, second = tmp_path / "first", tmp_path / "second"
+    write(first / "a.jinja", "from first")
+    write(second / "b.jinja", "from second")
+    set_wildcard_roots(first, second)
+    template = "{% include 'a.jinja' %}, {% include 'b.jinja' %}"
+    assert DPJinja().get_prompt(template, "No") == ("from first, from second",)
+
+
 def test_output_string() -> None:
     assert OutputString().output_string(text="hello") == {"ui": {"text": ["hello"]}}
     assert OutputString.OUTPUT_NODE is True
