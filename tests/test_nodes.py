@@ -233,6 +233,7 @@ def test_jinja_includes_templates_from_every_wildcard_folder(tmp_path: Path) -> 
 def test_output_string() -> None:
     assert OutputString().output_string(text="hello") == {"ui": {"text": ["hello"]}}
     assert OutputString.OUTPUT_NODE is True
+    assert OutputString.DEPRECATED is True
 
 
 def test_magicprompt_seeded_with_fake_generator(
@@ -261,15 +262,22 @@ def test_magicprompt_seeded_with_fake_generator(
     assert calls == [5, 5, None]
 
 
-def test_magicprompt_failure_is_logged(
+def test_magicprompt_failure_raises(
     wildcards: Path,
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setitem(sys.modules, "dynamicprompts.generators.magicprompt", None)
-    assert DPMagicPrompt().get_prompt("a cat", 1, "No") == ("",)
-    assert "MagicPrompt failed" in caplog.text
-    assert "Traceback" in caplog.text
+    with pytest.raises(ImportError):
+        DPMagicPrompt().get_prompt("a cat", 1, "No")
+
+
+def test_random_empty_text(wildcards: Path) -> None:
+    assert DPRandomGenerator().get_prompt("", 0, "No") == ("",)
+
+
+def test_yaml_wildcards(wildcards: Path) -> None:
+    write(wildcards / "pack.yaml", "animal:\n  - cat\n")
+    assert DPRandomGenerator().get_prompt("__animal__", 0, "No") == ("cat",)
 
 
 def test_import_does_not_import_transformers(tmp_path: Path) -> None:

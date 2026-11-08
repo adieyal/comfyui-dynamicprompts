@@ -16,21 +16,22 @@ _SEED_MODULUS = 2**32
 class DPMagicPrompt(DPSeededNode):
     def get_prompt(self, text: str, seed: int, autorefresh: Autorefresh) -> tuple[str]:
         run_seed = None if autorefresh == "Yes" else seed % _SEED_MODULUS
-        try:
-            # Imported here so that loading the package never imports transformers.
-            # The library keeps the loaded pipeline on the class, so the model loads once.
-            from dynamicprompts.generators.magicprompt import MagicPromptGenerator
+        # Imported here so that loading the package never imports transformers.
+        # The library keeps the loaded pipeline on the class, so the model loads once.
+        # Errors propagate so ComfyUI fails the run and shows them.
+        from dynamicprompts.generators.magicprompt import MagicPromptGenerator
 
-            generator = MagicPromptGenerator(
-                prompt_generator=RandomPromptGenerator(
-                    get_wildcard_manager(),
-                    seed=run_seed,
-                ),
+        generator = MagicPromptGenerator(
+            prompt_generator=RandomPromptGenerator(
+                get_wildcard_manager(),
                 seed=run_seed,
-            )
-            prompt = str(generator.generate(text, 1)[0])
-        except Exception:
-            logger.exception("MagicPrompt failed for %r", text)
+            ),
+            seed=run_seed,
+        )
+        prompts = generator.generate(text, 1)
+        if not prompts:
+            logger.warning("Template produced no prompt: %r", text)
             return ("",)
+        prompt = str(prompts[0])
         logger.info("Magic prompt: %s", prompt)
         return (prompt,)

@@ -338,7 +338,10 @@
       },
       "widgets_values": [
         "A mech warrior",
-        "Yes"
+        0,
+        "randomize",
+        "No",
+        "No"
       ],
       "color": "#2a363b",
       "bgcolor": "#3f5159"

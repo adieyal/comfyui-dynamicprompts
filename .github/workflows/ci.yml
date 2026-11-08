@@ -27,6 +27,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      # The magicprompt extra is left out to avoid installing torch; tests don't load transformers.
-      - run: pip install "dynamicprompts>=0.33.1" jinja2 pyyaml pytest
+      # Only the declared requirements, so a missing dependency fails here.
+      # transformers isn't declared (Magic Prompt uses ComfyUI's); tests don't load it.
+      - run: pip install -r requirements.txt pytest
       - run: pytest

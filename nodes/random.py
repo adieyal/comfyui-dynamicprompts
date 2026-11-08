@@ -16,6 +16,10 @@ class DPRandomGenerator(DPSeededNode):
             get_wildcard_manager(),
             seed=None if autorefresh == "Yes" else seed,
         )
-        prompt = str(generator.generate(text, 1)[0])
+        prompts = generator.generate(text, 1)
+        if not prompts:
+            logger.warning("Template produced no prompt: %r", text)
+            return ("",)
+        prompt = str(prompts[0])
         logger.info("Random prompt: %s", prompt)
         return (prompt,)

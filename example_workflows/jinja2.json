@@ -338,7 +338,8 @@
       },
       "widgets_values": [
         "{{ choice('red', 'blue', 'green') }} ball",
-        "Yes"
+        "Yes",
+        "No"
       ],
       "color": "#2a363b",
       "bgcolor": "#3f5159"

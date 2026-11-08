@@ -4,6 +4,10 @@ from typing import Any
 
 
 class OutputString:
+    """Kept so old workflows load. The frontend shows no text for it; use ComfyUI's Preview Any."""
+
+    DEPRECATED = True
+
     @classmethod
     def INPUT_TYPES(cls) -> dict[str, dict[str, tuple[Any, ...]]]:
         return {

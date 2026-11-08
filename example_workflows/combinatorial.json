@@ -338,7 +338,11 @@
         "Node name for S&R": "DPCombinatorialGenerator"
       },
       "widgets_values": [
-        "A {red|green|blue} ball by __artists/Photography/by_country/china__"
+        "A {red|green|blue} ball by __artists/Photography/by_country/china__",
+        0,
+        "increment",
+        "No",
+        "No"
       ],
       "color": "#2a363b",
       "bgcolor": "#3f5159"

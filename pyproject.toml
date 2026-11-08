@@ -5,7 +5,7 @@ description = "ComfyUI nodes for Dynamic Prompts: random and combinatorial promp
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
-    "dynamicprompts>=0.33.1",
+    "dynamicprompts[yaml]>=0.33.1",
 ]
 
 [project.urls]
