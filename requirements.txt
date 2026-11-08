@@ -1,1 +1,1 @@
-dynamicprompts[attentiongrabber,magicprompt]>=0.33.1
+dynamicprompts>=0.33.1

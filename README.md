@@ -6,7 +6,7 @@ ComfyUI-DynamicPrompts is a custom nodes library that integrates into your exist
 
 1. Random Prompts - Randomly samples variants and wildcards.
 2. Combinatorial Prompts - Walks through every possible combination of the variants and wildcards in a prompt.
-3. Magic Prompt - Employs a neural network to add relevant modifiers to your prompt. The model is loaded on first use, so ComfyUI starts quickly.
+3. Magic Prompt - Employs a neural network to add relevant modifiers to your prompt. The model is loaded on first use, so ComfyUI starts quickly. It needs `transformers`, which is not installed automatically so that your existing version is left alone; most ComfyUI installs already have it.
 4. Jinja2 Templates - Allows you to write prompts using Jinja2 templates. Templates can call `wildcard("...")` and import other templates from the wildcard folder.
 5. OutputString - Shows a string and passes it on.
 
