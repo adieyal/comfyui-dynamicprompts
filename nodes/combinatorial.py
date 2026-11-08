@@ -24,7 +24,11 @@ class DPCombinatorialGenerator(DPSeededNode):
         seed: int,
         autorefresh: Autorefresh,
     ) -> tuple[str, int]:
-        generator = CombinatorialPromptGenerator(get_wildcard_manager())
+        # The seed also fixes random choices inside the template ({~a|b}), so an index always gives the same prompt.
+        generator = CombinatorialPromptGenerator(
+            get_wildcard_manager(),
+            seed=None if autorefresh == "Yes" else seed,
+        )
         prompts = generator.generate(text, max_prompts=MAX_COMBINATIONS)
         count = len(prompts)
         if count >= MAX_COMBINATIONS:

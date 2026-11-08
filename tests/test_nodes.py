@@ -175,6 +175,13 @@ def test_combinatorial_index_and_count(wildcards: Path) -> None:
     assert node.get_prompt("{a|b} {x|y}", 0, "No")[1] == 4
 
 
+def test_combinatorial_seed_fixes_random_choices(wildcards: Path) -> None:
+    template = "{~a|b|c|d|e|f|g|h} {x|y}"
+    node = DPCombinatorialGenerator()
+    first = node.get_prompt(template, 4, "No")
+    assert all(node.get_prompt(template, 4, "No") == first for _ in range(5))
+
+
 def test_combinatorial_autorefresh_picks_varying_index(wildcards: Path) -> None:
     node = DPCombinatorialGenerator()
     prompts = {node.get_prompt(MANY_CHOICES, 0, "Yes")[0] for _ in range(10)}
