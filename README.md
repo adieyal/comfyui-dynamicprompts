@@ -64,4 +64,5 @@ Seeds and refreshing:
 
 - **Random Prompts**: the same text, seed and wildcard files give the same prompt. The seed widget has "control after generate" (fixed, increment, decrement or randomize). Setting `autorefresh` to Yes gives a new random prompt on every run, whatever the seed.
 - **Combinatorial Prompts**: the seed is the index of the combination to output, and it wraps around. A second output gives the total number of combinations, so setting the seed to increment walks through all of them. For example, A `{red|green|blue}` ball gives A red ball, A green ball, A blue ball, then A red ball again. Setting `autorefresh` to Yes picks a random combination on every run.
-- **Magic Prompt** and **Jinja2 Templates** also have an `autorefresh` option. If it is Yes, a new prompt is generated on every run; if it is No, the same seed gives the same prompt.
+- **Magic Prompt** works like Random Prompts: the same text and seed give the same prompt, and `autorefresh` set to Yes gives a new prompt on every run.
+- **Jinja2 Templates** has no seed. With `autorefresh` set to No, the result is reused until the template or the wildcard files change; with Yes, the template is rendered again on every run.

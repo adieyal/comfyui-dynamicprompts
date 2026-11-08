@@ -1,2 +1,4 @@
 *.pyc
 __pycache__
+# User wildcard files; the extension creates this folder at startup.
+/wildcards/
