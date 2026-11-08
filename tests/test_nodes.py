@@ -120,6 +120,52 @@ def test_jinja_is_changed(wildcards: Path) -> None:
     assert math.isnan(DPJinja.IS_CHANGED("{{ 1 }}", "Yes"))
 
 
+@pytest.mark.parametrize(
+    "node",
+    [DPRandomGenerator, DPCombinatorialGenerator, DPMagicPrompt, DPJinja],
+)
+def test_save_to_metadata_inputs(node: type) -> None:
+    inputs = node.INPUT_TYPES()
+    assert list(inputs["optional"]) == ["save_to_metadata"]
+    assert inputs["hidden"] == {
+        "extra_pnginfo": "EXTRA_PNGINFO",
+        "unique_id": "UNIQUE_ID",
+    }
+
+
+def test_save_to_metadata_writes_prompt(wildcards: Path) -> None:
+    info: dict[str, object] = {"workflow": {}}
+    (prompt,) = DPRandomGenerator().run("{red|blue}", 3, "No", "Yes", info, "5")
+    (count_prompt, _) = DPCombinatorialGenerator().run(
+        "{a|b}", 1, "No", "Yes", info, "6"
+    )
+    (jinja,) = DPJinja().get_prompt("{{ 1 + 1 }}", "No", "Yes", info, "7")
+    assert info["dynamicprompts"] == {"5": prompt, "6": count_prompt, "7": jinja}
+    assert count_prompt == "b"
+    assert jinja == "2"
+
+
+def test_save_to_metadata_off_leaves_metadata_alone(wildcards: Path) -> None:
+    info: dict[str, object] = {}
+    DPRandomGenerator().run("{red|blue}", 3, "No", "No", info, "5")
+    DPJinja().get_prompt("x", "No", "No", info, "7")
+    assert info == {}
+
+
+def test_save_to_metadata_without_metadata_warns(
+    wildcards: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    assert DPRandomGenerator().run("red", 3, "No", "Yes", None, "5") == ("red",)
+    assert "no image metadata" in caplog.text
+
+
+def test_save_to_metadata_disables_caching(wildcards: Path) -> None:
+    assert math.isnan(DPRandomGenerator.IS_CHANGED("a", 1, "No", "Yes", None, "5"))
+    assert math.isnan(DPJinja.IS_CHANGED("a", "No", "Yes", None, "7"))
+    assert isinstance(DPRandomGenerator.IS_CHANGED("a", 1, "No", "No", None, "5"), str)
+
+
 def test_combinatorial_index_and_count(wildcards: Path) -> None:
     node = DPCombinatorialGenerator()
     assert DPCombinatorialGenerator.RETURN_TYPES == ("STRING", "INT")
