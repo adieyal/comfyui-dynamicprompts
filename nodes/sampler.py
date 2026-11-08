@@ -45,7 +45,7 @@ def save_prompt(
 
 
 class DPSeededNode:
-    """Inputs and caching shared by the Random, Combinatorial and MagicPrompt nodes."""
+    """Inputs and caching shared by the Random and MagicPrompt nodes."""
 
     RETURN_TYPES: tuple[str, ...] = ("STRING",)
     FUNCTION = "run"

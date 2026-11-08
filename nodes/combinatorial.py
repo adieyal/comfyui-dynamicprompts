@@ -1,32 +1,77 @@
 from __future__ import annotations
 
 import logging
-import random
+from typing import Any
 
 from dynamicprompts.generators import CombinatorialPromptGenerator
 from dynamicprompts.samplers.count import UnboundedCount
 
-from .sampler import Autorefresh, DPSeededNode
-from .wildcards import get_wildcard_manager
+from .sampler import METADATA_INPUTS, SaveToMetadata, save_prompt
+from .wildcards import change_key, get_wildcard_manager
 
 logger = logging.getLogger(__name__)
 
 
-class DPCombinatorialGenerator(DPSeededNode):
+class DPCombinatorialGenerator:
+    """Outputs combination `index % count` of the template, and the count.
+
+    Takes an `index` instead of the seed and autorefresh inputs of DPSeededNode.
+    """
+
     RETURN_TYPES = ("STRING", "INT")
     RETURN_NAMES = ("prompt", "combinations")
+    FUNCTION = "run"
+    CATEGORY = "Dynamic Prompts"
 
-    def get_prompt(
+    @classmethod
+    def INPUT_TYPES(cls) -> dict[str, dict[str, Any]]:
+        return {
+            "required": {
+                "text": ("STRING", {"multiline": True, "dynamicPrompts": False}),
+                "index": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 0xFFFFFFFFFFFFFFFF,
+                        "control_after_generate": "increment",
+                    },
+                ),
+            },
+            **METADATA_INPUTS,
+        }
+
+    @classmethod
+    def IS_CHANGED(
+        cls,
+        text: str,
+        index: int,
+        save_to_metadata: SaveToMetadata = "No",
+        extra_pnginfo: dict[str, Any] | None = None,
+        unique_id: str | None = None,
+    ) -> float | str:
+        # A cached node doesn't run, so it couldn't write this run's metadata.
+        if save_to_metadata == "Yes":
+            return float("nan")
+        return change_key(text, index)
+
+    def run(
         self,
         text: str,
-        seed: int,
-        autorefresh: Autorefresh,
+        index: int,
+        save_to_metadata: SaveToMetadata = "No",
+        extra_pnginfo: dict[str, Any] | None = None,
+        unique_id: str | None = None,
     ) -> tuple[str, int]:
-        # The seed also fixes random choices inside the template ({~a|b}), so an index always gives the same prompt.
-        generator = CombinatorialPromptGenerator(
-            get_wildcard_manager(),
-            seed=None if autorefresh == "Yes" else seed,
-        )
+        result = self.get_prompt(text, index)
+        if save_to_metadata == "Yes":
+            save_prompt(extra_pnginfo, unique_id, result[0])
+        return result
+
+    def get_prompt(self, text: str, index: int) -> tuple[str, int]:
+        # Seeding with the index fixes random choices inside the template ({~a|b}): an index always gives
+        # the same prompt, and index + count gives the same combination with fresh random choices.
+        generator = CombinatorialPromptGenerator(get_wildcard_manager(), seed=index)
         result = generator.count(text)
         if isinstance(result, UnboundedCount):
             raise ValueError(
@@ -37,9 +82,9 @@ class DPCombinatorialGenerator(DPSeededNode):
             logger.warning("Template produced no combinations: %r", text)
             return ("", 0)
         if result.has_random_parts:
-            logger.debug("Template has random parts; the seed fixes their choices.")
+            logger.debug("Template has random parts; the index fixes their choices.")
 
-        index = random.randrange(count) if autorefresh == "Yes" else seed % count
-        prompt = generator.prompt_at(text, index)
-        logger.info("Combinatorial prompt %d of %d: %s", index + 1, count, prompt)
+        position = index % count
+        prompt = generator.prompt_at(text, position)
+        logger.info("Combinatorial prompt %d of %d: %s", position + 1, count, prompt)
         return (prompt, count)

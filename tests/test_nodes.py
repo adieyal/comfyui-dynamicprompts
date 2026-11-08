@@ -43,7 +43,7 @@ def test_mappings_keep_keys_and_drop_feeling_lucky() -> None:
     ("node", "names"),
     [
         (DPRandomGenerator, ["text", "seed", "autorefresh"]),
-        (DPCombinatorialGenerator, ["text", "seed", "autorefresh"]),
+        (DPCombinatorialGenerator, ["text", "index"]),
         (DPMagicPrompt, ["text", "seed", "autorefresh"]),
         (DPJinja, ["text", "autorefresh"]),
         (OutputString, ["text"]),
@@ -51,6 +51,11 @@ def test_mappings_keep_keys_and_drop_feeling_lucky() -> None:
 )
 def test_input_names_and_order(node: type, names: list[str]) -> None:
     assert list(node.INPUT_TYPES()["required"]) == names
+
+
+def test_combinatorial_index_increments_by_default() -> None:
+    index = DPCombinatorialGenerator.INPUT_TYPES()["required"]["index"]
+    assert index[1]["control_after_generate"] == "increment"
 
 
 def test_register_wildcard_folders() -> None:
@@ -138,9 +143,7 @@ def test_save_to_metadata_inputs(node: type) -> None:
 def test_save_to_metadata_writes_prompt(wildcards: Path) -> None:
     info: dict[str, object] = {"workflow": {}}
     (prompt,) = DPRandomGenerator().run("{red|blue}", 3, "No", "Yes", info, "5")
-    (count_prompt, _) = DPCombinatorialGenerator().run(
-        "{a|b}", 1, "No", "Yes", info, "6"
-    )
+    (count_prompt, _) = DPCombinatorialGenerator().run("{a|b}", 1, "Yes", info, "6")
     (jinja,) = DPJinja().get_prompt("{{ 1 + 1 }}", "No", "Yes", info, "7")
     assert info["dynamicprompts"] == {"5": prompt, "6": count_prompt, "7": jinja}
     assert count_prompt == "b"
@@ -166,40 +169,52 @@ def test_save_to_metadata_disables_caching(wildcards: Path) -> None:
     assert math.isnan(DPRandomGenerator.IS_CHANGED("a", 1, "No", "Yes", None, "5"))
     assert math.isnan(DPJinja.IS_CHANGED("a", "No", "Yes", None, "7"))
     assert isinstance(DPRandomGenerator.IS_CHANGED("a", 1, "No", "No", None, "5"), str)
+    assert math.isnan(DPCombinatorialGenerator.IS_CHANGED("a", 1, "Yes", None, "6"))
+
+
+def test_combinatorial_is_changed(wildcards: Path) -> None:
+    key = DPCombinatorialGenerator.IS_CHANGED("a {b|c}", 1)
+    assert DPCombinatorialGenerator.IS_CHANGED("a {b|c}", 1, "No", None, "6") == key
+    assert DPCombinatorialGenerator.IS_CHANGED("a {b|c}", 2) != key
+    assert DPCombinatorialGenerator.IS_CHANGED("a {b|d}", 1) != key
 
 
 def test_combinatorial_index_and_count(wildcards: Path) -> None:
     """[REQ BATCH.COUNT]"""
     node = DPCombinatorialGenerator()
     assert DPCombinatorialGenerator.RETURN_TYPES == ("STRING", "INT")
-    assert node.get_prompt("{a|b|c}", 0, "No") == ("a", 3)
-    assert node.get_prompt("{a|b|c}", 2, "No") == ("c", 3)
-    assert node.get_prompt("{a|b|c}", 4, "No") == ("b", 3)
-    assert node.get_prompt("{a|b} {x|y}", 0, "No")[1] == 4
+    assert node.get_prompt("{a|b|c}", 0) == ("a", 3)
+    assert node.get_prompt("{a|b|c}", 2) == ("c", 3)
+    assert node.get_prompt("{a|b|c}", 4) == ("b", 3)
+    assert node.get_prompt("{a|b} {x|y}", 0)[1] == 4
 
 
 def test_combinatorial_large_count_is_exact_and_index_wraps(wildcards: Path) -> None:
     """[REQ BATCH.COUNT]"""
     four = "{a|b|c|d}"
     template = " ".join([four] * 8)  # 4**8 = 65,536 combinations
-    seed = 50_000 + 65_536  # seed % count = 50,000 > 10,000
-    prompt, count = DPCombinatorialGenerator().get_prompt(template, seed, "No")
+    index = 50_000 + 65_536  # index % count = 50,000 > 10,000
+    prompt, count = DPCombinatorialGenerator().get_prompt(template, index)
     assert count == 65_536
-    generator = CombinatorialPromptGenerator(wildcards_module.get_wildcard_manager(), seed=seed)
-    assert prompt == generator.prompt_at(template, seed % count)
+    generator = CombinatorialPromptGenerator(wildcards_module.get_wildcard_manager(), seed=index)
+    assert prompt == generator.prompt_at(template, index % count)
 
 
-def test_combinatorial_seed_fixes_random_choices(wildcards: Path) -> None:
+def test_combinatorial_index_fixes_random_choices(wildcards: Path) -> None:
     template = "{~a|b|c|d|e|f|g|h} {x|y}"
     node = DPCombinatorialGenerator()
-    first = node.get_prompt(template, 4, "No")
-    assert all(node.get_prompt(template, 4, "No") == first for _ in range(5))
+    first = node.get_prompt(template, 4)
+    assert all(node.get_prompt(template, 4) == first for _ in range(5))
 
 
-def test_combinatorial_autorefresh_picks_varying_index(wildcards: Path) -> None:
+def test_combinatorial_later_pass_keeps_combination_with_fresh_random_parts(wildcards: Path) -> None:
+    template = MANY_CHOICES.replace("{", "{~", 1) + " {x|y}"
     node = DPCombinatorialGenerator()
-    prompts = {node.get_prompt(MANY_CHOICES, 0, "Yes")[0] for _ in range(10)}
-    assert len(prompts) > 1
+    first, count = node.get_prompt(template, 1)
+    assert count == 2
+    later = [node.get_prompt(template, 1 + count * n)[0] for n in range(1, 11)]
+    assert all(prompt.endswith(" y") for prompt in [first, *later])
+    assert len({first, *later}) > 1
 
 
 class FakeCombinatorialGenerator:
@@ -239,41 +254,23 @@ def test_combinatorial_count_above_old_cap_passes_through(
 ) -> None:
     """[REQ BATCH.COUNT]"""
     fake = use_fake_generator(monkeypatch, ExactCount(10**12, False))
-    prompt, count = DPCombinatorialGenerator().get_prompt("t", 7, "No")
+    prompt, count = DPCombinatorialGenerator().get_prompt("t", 7)
     assert count == 10**12
     assert prompt == "t#7"
     assert fake.seeds == [7]
 
 
-def test_combinatorial_seed_wraps_to_index(
+def test_combinatorial_index_wraps(
     wildcards: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """[REQ BATCH.COUNT]"""
     fake = use_fake_generator(monkeypatch, ExactCount(20_000, True))
     node = DPCombinatorialGenerator()
-    assert node.get_prompt("t", 20_005, "No") == ("t#5", 20_000)
-    assert node.get_prompt("t", 19_999, "No") == ("t#19999", 20_000)
+    assert node.get_prompt("t", 20_005) == ("t#5", 20_000)
+    assert node.get_prompt("t", 19_999) == ("t#19999", 20_000)
     assert fake.indexes == [5, 19_999]
-
-
-def test_combinatorial_autorefresh_draws_from_full_count(
-    wildcards: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """[REQ BATCH.COUNT]"""
-    fake = use_fake_generator(monkeypatch, ExactCount(50_000, False))
-    drawn: list[int] = []
-
-    def fake_randrange(stop: int) -> int:
-        drawn.append(stop)
-        return 42_000
-
-    monkeypatch.setattr("nodes.combinatorial.random.randrange", fake_randrange)
-    assert DPCombinatorialGenerator().get_prompt("t", 3, "Yes") == ("t#42000", 50_000)
-    assert drawn == [50_000]
-    assert fake.seeds == [None]
-    assert fake.indexes == [42_000]
+    assert fake.seeds == [20_005, 19_999]
 
 
 def test_combinatorial_unbounded_raises(
@@ -283,7 +280,7 @@ def test_combinatorial_unbounded_raises(
     """[REQ BATCH.COUNT]"""
     fake = use_fake_generator(monkeypatch, UnboundedCount())
     with pytest.raises(ValueError, match="recursive wildcard.*unbounded"):
-        DPCombinatorialGenerator().get_prompt("t", 1, "No")
+        DPCombinatorialGenerator().get_prompt("t", 1)
     assert fake.indexes == []
 
 
@@ -294,8 +291,7 @@ def test_combinatorial_zero_count_returns_empty(
 ) -> None:
     """[REQ BATCH.COUNT]"""
     fake = use_fake_generator(monkeypatch, ExactCount(0, False))
-    assert DPCombinatorialGenerator().get_prompt("", 1, "No") == ("", 0)
-    assert DPCombinatorialGenerator().get_prompt("", 1, "Yes") == ("", 0)
+    assert DPCombinatorialGenerator().get_prompt("", 1) == ("", 0)
     assert fake.indexes == []
     assert "no combinations" in caplog.text
 
@@ -316,7 +312,7 @@ def test_multiple_wildcard_roots(tmp_path: Path) -> None:
     write(second / "nested" / "plant.txt", "fern\n")
     set_wildcard_roots(first, second, tmp_path / "missing")
     node = DPCombinatorialGenerator()
-    assert node.get_prompt("__animal__ __nested/plant__", 0, "No") == (
+    assert node.get_prompt("__animal__ __nested/plant__", 0) == (
         "cat fern",
         1,
     )
