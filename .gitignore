@@ -2,3 +2,9 @@
 __pycache__
 # User wildcard files; the extension creates this folder at startup.
 /wildcards/
+
+# Local Grounded runtime, environment, and agent worktrees.
+/.grounded/
+
+# Local secrets (Comfy Registry key).
+.env

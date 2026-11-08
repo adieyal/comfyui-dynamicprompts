@@ -4,25 +4,25 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "comfyui-dynamicprompts"
-version = "0.3.0"
+version = "0.3.1"
 source = { virtual = "." }
 dependencies = [
     { name = "dynamicprompts", extra = ["yaml"] },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "dynamicprompts", extras = ["yaml"], specifier = ">=0.33.1" }]
+requires-dist = [{ name = "dynamicprompts", extras = ["yaml"], specifier = ">=0.33.2" }]
 
 [[package]]
 name = "dynamicprompts"
-version = "0.33.1"
+version = "0.33.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jinja2" },
     { name = "pyparsing" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/28/8a6596fc0d589fb5806b4e393cbc678b4474ddf75453ed99c094a5cfe2a4/dynamicprompts-0.33.1-py3-none-any.whl", hash = "sha256:d5e7e0c5bf59f62e8614273b3ebb8ae1edc2e1289b812ec3a1710669aecbbc32", size = 57844, upload-time = "2026-11-08T00:39:02.665Z" },
+    { url = "https://files.pythonhosted.org/packages/c1/f1/eb4b47f0d62ae0074c73602af0081a1b8368291dcf61ad14902faf9cc169/dynamicprompts-0.33.3-py3-none-any.whl", hash = "sha256:12b60b9625c2289d4edf066ace1fbd2d58212a59f269236e93863238af41ee7c", size = 58109, upload-time = "2026-11-08T07:57:08.617Z" },
 ]
 
 [package.optional-dependencies]
