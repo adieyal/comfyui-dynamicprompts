@@ -7,7 +7,7 @@ from dynamicprompts.generators import CombinatorialPromptGenerator
 from dynamicprompts.samplers.count import UnboundedCount
 
 from .sampler import METADATA_INPUTS, SaveToMetadata, save_prompt
-from .wildcards import change_key, get_wildcard_manager
+from .wildcards import change_key, get_wildcard_manager, may_use_wildcards
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class DPCombinatorialGenerator:
         # A cached node doesn't run, so it couldn't write this run's metadata.
         if save_to_metadata == "Yes":
             return float("nan")
-        return change_key(text, index)
+        return change_key(text, index, scan_wildcards=may_use_wildcards(text))
 
     def run(
         self,
@@ -71,7 +71,10 @@ class DPCombinatorialGenerator:
     def get_prompt(self, text: str, index: int) -> tuple[str, int]:
         # Seeding with the index fixes random choices inside the template ({~a|b}): an index always gives
         # the same prompt, and index + count gives the same combination with fresh random choices.
-        generator = CombinatorialPromptGenerator(get_wildcard_manager(), seed=index)
+        generator = CombinatorialPromptGenerator(
+            get_wildcard_manager(may_use_wildcards(text)),
+            seed=index,
+        )
         result = generator.count(text)
         if isinstance(result, UnboundedCount):
             raise ValueError(

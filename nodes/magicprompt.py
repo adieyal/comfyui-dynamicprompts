@@ -5,7 +5,7 @@ import logging
 from dynamicprompts.generators import RandomPromptGenerator
 
 from .sampler import Autorefresh, DPSeededNode
-from .wildcards import get_wildcard_manager
+from .wildcards import get_wildcard_manager, may_use_wildcards
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class DPMagicPrompt(DPSeededNode):
 
         generator = MagicPromptGenerator(
             prompt_generator=RandomPromptGenerator(
-                get_wildcard_manager(),
+                get_wildcard_manager(may_use_wildcards(text)),
                 seed=run_seed,
             ),
             seed=run_seed,

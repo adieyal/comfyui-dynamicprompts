@@ -8,7 +8,11 @@ from pathlib import Path
 
 import pytest
 from conftest import REPO_ROOT, folder_paths, set_wildcard_roots
-from dynamicprompts.generators import CombinatorialPromptGenerator
+from dynamicprompts.generators import (
+    CombinatorialPromptGenerator,
+    RandomPromptGenerator,
+)
+from dynamicprompts.wildcards import WildcardManager
 
 import nodes
 from nodes import wildcards as wildcards_module
@@ -108,13 +112,129 @@ def test_is_changed(wildcards: Path) -> None:
     assert DPRandomGenerator.IS_CHANGED("a {b|c}", 2, "No") != key
     assert DPRandomGenerator.IS_CHANGED("a {b|d}", 1, "No") != key
 
+    # Without "__" the template can't reach wildcard files, so they don't affect the key.
     write(wildcards / "colors.txt", "red\n")
-    after_add = DPRandomGenerator.IS_CHANGED("a {b|c}", 1, "No")
-    assert after_add != key
-    write(wildcards / "colors.txt", "red\nblue\n")
-    assert DPRandomGenerator.IS_CHANGED("a {b|c}", 1, "No") != after_add
+    assert DPRandomGenerator.IS_CHANGED("a {b|c}", 1, "No") == key
 
     assert math.isnan(DPRandomGenerator.IS_CHANGED("a {b|c}", 1, "Yes"))
+
+
+@pytest.mark.parametrize("text", ["a __colors__", "a {b|__colors__}"])
+def test_wildcard_template_key_follows_wildcard_files(
+    wildcards: Path, text: str
+) -> None:
+    key = DPRandomGenerator.IS_CHANGED(text, 1, "No")
+    combinatorial_key = DPCombinatorialGenerator.IS_CHANGED(text, 1)
+    write(wildcards / "colors.txt", "red\n")
+    after_add = DPRandomGenerator.IS_CHANGED(text, 1, "No")
+    assert after_add != key
+    assert DPCombinatorialGenerator.IS_CHANGED(text, 1) != combinatorial_key
+    write(wildcards / "colors.txt", "red\nblue\n")
+    after_edit = DPRandomGenerator.IS_CHANGED(text, 1, "No")
+    assert after_edit != after_add
+    (wildcards / "colors.txt").unlink()
+    assert DPRandomGenerator.IS_CHANGED(text, 1, "No") != after_edit
+
+
+def count_signature_scans(monkeypatch: pytest.MonkeyPatch) -> list[list[Path]]:
+    calls: list[list[Path]] = []
+    real = wildcards_module.wildcard_signature
+
+    def spy(roots: list[Path]) -> str:
+        calls.append(roots)
+        return real(roots)
+
+    monkeypatch.setattr(wildcards_module, "wildcard_signature", spy)
+    return calls
+
+
+def install_fake_magicprompt(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeMagicPromptGenerator:
+        def __init__(
+            self, prompt_generator: RandomPromptGenerator, seed: int | None
+        ) -> None:
+            self._inner = prompt_generator
+
+        def generate(self, text: str, num: int) -> list[str]:
+            return [f"{self._inner.generate(text, num)[0]}, magic"]
+
+    fake = types.ModuleType("dynamicprompts.generators.magicprompt")
+    monkeypatch.setattr(
+        fake, "MagicPromptGenerator", FakeMagicPromptGenerator, raising=False
+    )
+    monkeypatch.setitem(sys.modules, "dynamicprompts.generators.magicprompt", fake)
+
+
+def test_no_wildcard_templates_never_scan_wildcard_files(
+    wildcards: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Issue #81: templates without "__" skip the wildcard folder scan."""
+    write(wildcards / "colors.txt", "red\n")
+    install_fake_magicprompt(monkeypatch)
+    expected = str(
+        RandomPromptGenerator(
+            WildcardManager(root_map={"": [wildcards]}),
+            seed=7,
+        ).generate(MANY_CHOICES, 1)[0],
+    )
+    calls = count_signature_scans(monkeypatch)
+
+    random_key = DPRandomGenerator.IS_CHANGED(MANY_CHOICES, 7, "No")
+    assert DPRandomGenerator().run(MANY_CHOICES, 7, "No") == (expected,)
+    assert math.isnan(DPRandomGenerator.IS_CHANGED(MANY_CHOICES, 7, "Yes"))
+    assert DPRandomGenerator().run(MANY_CHOICES, 7, "Yes")[0].startswith("option")
+    combinatorial_key = DPCombinatorialGenerator.IS_CHANGED("a {b|c}", 1)
+    assert DPCombinatorialGenerator().run("a {b|c}", 1) == ("a c", 2)
+    magic_key = DPMagicPrompt.IS_CHANGED(MANY_CHOICES, 7, "No")
+    assert DPMagicPrompt().run(MANY_CHOICES, 7, "No") == (f"{expected}, magic",)
+    assert math.isnan(DPMagicPrompt.IS_CHANGED(MANY_CHOICES, 7, "Yes"))
+    assert DPMagicPrompt().run(MANY_CHOICES, 7, "Yes")[0].endswith(", magic")
+    metadata: dict[str, dict[str, str]] = {}
+    DPRandomGenerator().run(MANY_CHOICES, 7, "No", "Yes", metadata, "3")
+    assert metadata == {"dynamicprompts": {"3": expected}}
+
+    write(wildcards / "colors.txt", "red\nblue\n")
+    write(wildcards / "plant.txt", "fern\n")
+    assert DPRandomGenerator.IS_CHANGED(MANY_CHOICES, 7, "No") == random_key
+    assert DPCombinatorialGenerator.IS_CHANGED("a {b|c}", 1) == combinatorial_key
+    assert DPMagicPrompt.IS_CHANGED(MANY_CHOICES, 7, "No") == magic_key
+    assert calls == []
+
+
+def test_wildcard_templates_still_scan_and_pick_up_edits(
+    wildcards: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = count_signature_scans(monkeypatch)
+    write(wildcards / "animal.txt", "cat\n")
+    assert DPCombinatorialGenerator().get_prompt("a {__animal__|dog}", 0) == (
+        "a cat",
+        2,
+    )
+    write(wildcards / "animal.txt", "giraffe\n")
+    assert DPCombinatorialGenerator().get_prompt("a {__animal__|dog}", 0) == (
+        "a giraffe",
+        2,
+    )
+    (wildcards / "animal.txt").unlink()
+    assert DPRandomGenerator().get_prompt("__animal__", 1, "No") == ("__animal__",)
+    assert calls
+
+
+def test_jinja_key_follows_wildcard_and_included_files(wildcards: Path) -> None:
+    wildcard_template = '{{ wildcard("colors") | join(",") }}'
+    include_template = "{% include 'part.jinja' %}"
+    wildcard_key = DPJinja.IS_CHANGED(wildcard_template, "No")
+    write(wildcards / "colors.txt", "red\n")
+    assert DPJinja.IS_CHANGED(wildcard_template, "No") != wildcard_key
+
+    write(wildcards / "part.jinja", "first")
+    include_key = DPJinja.IS_CHANGED(include_template, "No")
+    assert DPJinja().get_prompt(include_template, "No") == ("first",)
+    write(wildcards / "part.jinja", "second edit")
+    assert DPJinja.IS_CHANGED(include_template, "No") != include_key
+    assert DPJinja().get_prompt(include_template, "No") == ("second edit",)
 
 
 def test_jinja_is_changed(wildcards: Path) -> None:
