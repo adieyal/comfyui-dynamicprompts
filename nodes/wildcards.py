@@ -45,15 +45,25 @@ def wildcard_signature(roots: list[Path]) -> str:
     return digest.hexdigest()
 
 
-def change_key(*parts: str | int) -> str:
+def may_use_wildcards(text: str) -> bool:
+    """Whether a standard (non-Jinja) template can reach wildcard files: only `__name__` does."""
+    return "__" in text
+
+
+def change_key(*parts: str | int, scan_wildcards: bool = True) -> str:
     """An IS_CHANGED value derived from node inputs and the wildcard signature."""
-    signature = wildcard_signature(wildcard_roots())
+    signature = wildcard_signature(wildcard_roots()) if scan_wildcards else ""
     return hashlib.sha256(repr((*parts, signature)).encode()).hexdigest()
 
 
-def get_wildcard_manager() -> WildcardManager:
-    """A manager over all wildcard roots, rebuilt when any wildcard file changes."""
+def get_wildcard_manager(scan_wildcards: bool = True) -> WildcardManager:
+    """A manager over all wildcard roots, rebuilt when any wildcard file changes.
+
+    Without `scan_wildcards`, return a manager with no roots, for templates that can't reach files.
+    """
     global _cached_manager
+    if not scan_wildcards:
+        return WildcardManager()
     roots = wildcard_roots()
     signature = wildcard_signature(roots)
     if _cached_manager is None or _cached_manager[0] != signature:

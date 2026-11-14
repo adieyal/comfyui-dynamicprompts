@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
-from .wildcards import change_key
+from .wildcards import change_key, may_use_wildcards
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class DPSeededNode:
         # A cached node doesn't run, so it couldn't write this run's metadata.
         if autorefresh == "Yes" or save_to_metadata == "Yes":
             return float("nan")
-        return change_key(text, seed)
+        return change_key(text, seed, scan_wildcards=may_use_wildcards(text))
 
     def run(
         self,
